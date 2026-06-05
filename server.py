@@ -19,6 +19,7 @@ Endpoints:
 from __future__ import annotations
 
 import json
+import logging
 import os
 import uuid
 from datetime import datetime, timezone
@@ -32,6 +33,8 @@ from pydantic import BaseModel
 from research_agent import build_agent
 
 app = FastAPI(title="Research Deep Agent", version="1.0.0")
+
+logger = logging.getLogger("research_agent.server")
 
 _STATIC = Path(__file__).parent / "static"
 
@@ -158,10 +161,51 @@ def _research_events(question: str, subject: str):
         yield _cloud_event(
             "io.agennext.research.completed", {"answer": final}, subject
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
+        # Log the detail server-side; never expose exception text to the client.
+        logger.exception("research stream failed for subject %s", subject)
         yield _cloud_event(
-            "io.agennext.research.error", {"message": str(exc)}, subject
+            "io.agennext.research.error",
+            {"message": "Research failed. Please try again."},
+            subject,
         )
+
+
+@app.post("/research/a2ui")
+def research_a2ui(req: ResearchRequest) -> StreamingResponse:
+    """Run research and stream the result as A2UI surface messages over SSE.
+
+    Lets an A2UI-capable client render the output natively. See
+    research_agent/a2ui.py and https://a2ui.org.
+    """
+    if not _ready or _agent is None:
+        raise HTTPException(status_code=503, detail="agent not ready")
+    question = req.question.strip()
+    if not question:
+        raise HTTPException(status_code=422, detail="question must not be empty")
+
+    from research_agent.a2ui import render_messages, sse_frames
+
+    def gen():
+        try:
+            result = _agent.invoke(
+                {"messages": [{"role": "user", "content": question}]}
+            )
+            answer = result["messages"][-1].content
+            yield from sse_frames(render_messages(answer))
+        except Exception:  # noqa: BLE001
+            logger.exception("a2ui research failed")
+            yield from sse_frames(
+                [{"jsonrpc": "2.0", "method": "updateComponents", "params": {
+                    "surfaceId": "error",
+                    "components": [{"id": "e0", "component": {
+                        "componentType": "Text",
+                        "properties": {"text": "Research failed. Please try again."},
+                    }}],
+                }}]
+            )
+
+    return StreamingResponse(gen(), media_type="text/event-stream")
 
 
 @app.post("/research/stream")

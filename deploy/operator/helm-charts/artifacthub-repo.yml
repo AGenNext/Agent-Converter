@@ -1,0 +1,8 @@
+# Artifact Hub repository metadata. Place this at the root of the published
+# Helm chart repository so Artifact Hub (https://artifacthub.io) can verify
+# ownership and index the chart. Replace the ownership claim values for your
+# own Artifact Hub account before publishing.
+repositoryID: ""        # set to your Artifact Hub repository ID to verify ownership
+owners:
+  - name: AGenNext
+    email: thefractionalpm@gmail.com

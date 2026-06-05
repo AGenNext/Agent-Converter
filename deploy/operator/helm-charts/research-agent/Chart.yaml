@@ -4,3 +4,22 @@ description: Research Deep Agent reconciled by the ResearchAgent operator
 type: application
 version: 1.0.0
 appVersion: "1.0.0"
+home: https://github.com/AGenNext/Agent-Converter
+sources:
+  - https://github.com/AGenNext/Agent-Converter
+maintainers:
+  - name: AGenNext
+    email: thefractionalpm@gmail.com
+keywords:
+  - research
+  - ai-agent
+  - langchain
+  - deep-agent
+# Artifact Hub annotations (https://artifacthub.io/docs/topics/annotations/helm/)
+annotations:
+  artifacthub.io/category: ai-machine-learning
+  artifacthub.io/license: MIT
+  artifacthub.io/operator: "true"
+  artifacthub.io/changes: |
+    - kind: added
+      description: Initial chart for the Research Deep Agent

@@ -74,6 +74,24 @@ def test_agent_builds():
     assert agent is not None
 
 
+def test_a2ui_render_messages():
+    from research_agent.a2ui import render_messages
+
+    msgs = render_messages("# Quick answer\nStrong fit [HIGH]\n\n- gap one\n- gap two")
+    assert [m["method"] for m in msgs] == [
+        "createSurface",
+        "updateComponents",
+        "updateDataModel",
+    ]
+    comps = msgs[1]["params"]["components"]
+    types = [c["component"]["componentType"] for c in comps]
+    assert "Heading" in types and "List" in types
+    # Confidence tag is surfaced for themed rendering.
+    assert any(
+        c["component"]["properties"].get("tag") == "HIGH" for c in comps
+    )
+
+
 def test_flags_toggle_subagents(monkeypatch):
     from research_agent import agent as agent_mod
 
