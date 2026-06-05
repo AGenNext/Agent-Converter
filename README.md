@@ -23,6 +23,7 @@ when it is genuinely uncertain.
 | [docs/mcp.md](docs/mcp.md) | MCP interface: tools and client registration |
 | [docs/multi-tenancy.md](docs/multi-tenancy.md) | Serve many tenants with isolated keys and models |
 | [docs/deployment.md](docs/deployment.md) | Container, Kubernetes, operator, and day-2 ops |
+| [docs/supply-chain.md](docs/supply-chain.md) | Dependency audit, SBOM, cosign signing |
 | [docs/ui-mockup.md](docs/ui-mockup.md) | Reference UI ([open the mockup](docs/ui-mockup.html)) |
 
 ## Why a deep agent

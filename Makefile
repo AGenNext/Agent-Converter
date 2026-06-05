@@ -3,7 +3,7 @@
 IMAGE ?= research-deep-agent:latest
 
 .PHONY: help install test run cli image compose-up compose-down \
-        k8s-deploy operator-deploy chaos storybook mcp tofu-plan tofu-apply
+        k8s-deploy operator-deploy chaos storybook mcp tofu-plan tofu-apply sbom
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -50,3 +50,6 @@ tofu-plan: ## OpenTofu plan (needs deploy/tofu/terraform.tfvars)
 
 tofu-apply: ## OpenTofu apply to the target cluster
 	cd deploy/tofu && tofu init && tofu apply
+
+sbom: ## Generate a CycloneDX SBOM into sbom/
+	pip install -q cyclonedx-bom && mkdir -p sbom && cyclonedx-py environment -o sbom/python.cdx.json

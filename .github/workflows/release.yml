@@ -1,0 +1,73 @@
+name: Release (build, SBOM, sign)
+
+# Build the OCI image with Cloud Native Buildpacks, push to GHCR, generate a
+# CycloneDX SBOM, and sign both the image and the SBOM with cosign (keyless,
+# via GitHub OIDC + Sigstore).
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write   # required for cosign keyless signing
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up pack (Cloud Native Buildpacks)
+        uses: buildpacks/github-actions/setup-pack@v5.8.11
+
+      - name: Build and push image
+        id: build
+        run: |
+          TAG="${GITHUB_REF_NAME:-latest}"
+          IMAGE_LC="$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')"
+          pack build "${IMAGE_LC}:${TAG}" \
+            --builder paketobuildpacks/builder-jammy-base \
+            --default-process web \
+            --publish
+          echo "ref=${IMAGE_LC}:${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve image digest
+        id: digest
+        uses: imjasonh/setup-crane@v0.4
+      - run: echo "ref=$(crane digest ${{ steps.build.outputs.ref }} --full-ref)" >> "$GITHUB_OUTPUT"
+        id: pin
+
+      - name: Generate SBOM (CycloneDX)
+        run: |
+          python -m pip install cyclonedx-bom -r requirements.txt
+          cyclonedx-py environment -o sbom.cdx.json
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign image (keyless)
+        run: cosign sign --yes "${{ steps.pin.outputs.ref }}"
+
+      - name: Attest SBOM (keyless)
+        run: |
+          cosign attest --yes --type cyclonedx \
+            --predicate sbom.cdx.json \
+            "${{ steps.pin.outputs.ref }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.cdx.json
