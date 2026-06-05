@@ -69,7 +69,23 @@
   .composer .send { background:var(--accent); color:#08111f; border:0; border-radius:10px;
     padding:12px 18px; font-weight:700; cursor:pointer; }
   .composer .send:disabled { opacity:.5; cursor:not-allowed; }
-  .hint { max-width:880px; margin:8px auto 0; color:var(--muted); font-size:12px; }
+  .hint { max-width:880px; margin:8px auto 0; color:var(--muted); font-size:12px; display:flex; justify-content:space-between; gap:16px; }
+  .hint .mode { white-space:nowrap; }
+  .hint .mode label { margin-left:8px; cursor:pointer; }
+
+  /* A2UI surface rendering */
+  .a2-surface { display:flex; flex-direction:column; }
+  .a2-heading { font-size:13px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted);
+    border-top:1px solid var(--line); padding-top:14px; margin:18px 0 8px; }
+  .a2-surface > .a2-heading:first-child { border-top:0; padding-top:0; margin-top:0; }
+  .a2-text { margin:4px 0; display:flex; align-items:flex-start; flex-wrap:wrap; }
+  .a2-list { padding-left:20px; margin:6px 0; }
+  .a2-list li { margin:4px 0; }
+  .a2-divider { border:0; border-top:1px solid var(--line); margin:12px 0; }
+  .a2-row { display:flex; gap:12px; }
+  .a2-column { display:flex; flex-direction:column; gap:6px; }
+  .a2-card { background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:12px; margin:8px 0; }
+  .a2-button { background:var(--accent); color:#08111f; border:0; border-radius:8px; padding:6px 12px; font-weight:600; cursor:pointer; }
 </style>
 </head>
 <body>
@@ -104,11 +120,18 @@
         <textarea id="q" placeholder="Ask a research question. Name the subject and the decision it informs…"></textarea>
         <button class="send" id="send">Research →</button>
       </div>
-      <div class="hint">Tip: include the subject, the decision, your context and scope. The agent will ask if a question is too vague.</div>
+      <div class="hint">
+        <span>Tip: include the subject, the decision, your context and scope. The agent will ask if a question is too vague.</span>
+        <span class="mode">Render:
+          <label><input type="radio" name="mode" value="stream" checked /> Streaming</label>
+          <label><input type="radio" name="mode" value="a2ui" /> A2UI</label>
+        </span>
+      </div>
     </div>
   </main>
 </div>
 
+<script src="/static/a2ui-client.js"></script>
 <script>
 const EXAMPLES = [
   "Research Parkwalk Advisors as a lead for a UK aerospace deep-tech £3.2M seed. Fit + red flags.",
@@ -216,8 +239,43 @@ async function ask(text){
   finally{ sendEl.disabled=false; node.scrollIntoView({behavior:"smooth"}); }
 }
 
-sendEl.onclick=()=>ask(qEl.value);
-qEl.addEventListener("keydown",e=>{ if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)) ask(qEl.value); });
+// A2UI path: render the result natively from A2UI surface messages.
+async function askA2UI(text){
+  if(!text.trim()) return;
+  qEl.value=""; sendEl.disabled=true;
+  addUser(text);
+  const node=addAgentNode();
+  const statusEl=node.querySelector('[data-role="status"]');
+  const stepEl=node.querySelector('[data-role="step"]');
+  const ansEl=node.querySelector('[data-role="answer"]');
+  stepEl.textContent="Researching, then rendering an A2UI surface…";
+  const client=new A2UIClient(ansEl);
+  try{
+    const r=await fetch("/research/a2ui",{method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({question:text})});
+    if(!r.ok||!r.body){ const e=await r.json().catch(()=>({detail:r.statusText}));
+      statusEl.remove(); ansEl.innerHTML=`<div class="error">Error ${r.status}: ${esc(e.detail||"request failed")}</div>`; return; }
+    let first=true;
+    for await (const {ce} of sseEvents(r)){
+      // Each SSE frame is a JSON-RPC A2UI message.
+      if(first){ statusEl.remove(); first=false; }
+      client.handle(ce);
+      node.scrollIntoView({block:"end"});
+    }
+    if(first) statusEl.remove();
+  }catch(err){ statusEl.remove(); ansEl.innerHTML=`<div class="error">Network error: ${esc(String(err))}</div>`; }
+  finally{ sendEl.disabled=false; node.scrollIntoView({behavior:"smooth"}); }
+}
+
+function currentMode(){
+  const sel=document.querySelector('input[name="mode"]:checked');
+  return sel ? sel.value : "stream";
+}
+function dispatch(text){ return currentMode()==="a2ui" ? askA2UI(text) : ask(text); }
+
+sendEl.onclick=()=>dispatch(qEl.value);
+qEl.addEventListener("keydown",e=>{ if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)) dispatch(qEl.value); });
 
 // Examples
 const exWrap=document.getElementById("examples");

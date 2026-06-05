@@ -50,9 +50,25 @@ step.
 - **The plan is visible.** Surfacing the todos shows the user the question was
   decomposed, not answered with one shallow search.
 
+## Render modes
+
+The live control panel (`static/index.html`) renders results two ways,
+switchable in the composer:
+
+1. **Streaming** (default) — consumes the CloudEvents-over-SSE stream from
+   `POST /research/stream`, showing live status steps and streaming the
+   markdown answer token by token.
+2. **A2UI** — consumes [A2UI](https://a2ui.org) surface messages from
+   `POST /research/a2ui` and renders them natively via a real A2UI client
+   (`static/a2ui-client.js`). The client maintains surfaces and a data model,
+   handles `createSurface` / `updateComponents` / `updateDataModel` /
+   `deleteSurface`, renders basic-catalog components (Heading, Text, List,
+   Divider, Row, Column, Card, Button), resolves `{{path}}` data bindings, and
+   surfaces confidence tags as themed chips. It executes no agent-supplied
+   code.
+
 ## Status
 
-This is a presentation-layer reference only. The agent itself is the CLI /
-library in `research_agent/`. Building the real frontend (wiring this layout to
-`build_agent().stream(...)` and rendering the structured sections) is future
-work; the mockup defines the target.
+The control panel is functional (both render modes work against the running
+service). The standalone HTML in `ui-mockup.html` remains as a static visual
+reference of the target layout.
