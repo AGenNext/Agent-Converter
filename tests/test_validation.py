@@ -92,6 +92,32 @@ def test_a2ui_render_messages():
     )
 
 
+def test_tenancy_credential_isolation(monkeypatch):
+    from research_agent.tenancy import (
+        TenantConfig,
+        get_credential,
+        load_tenant,
+        tenant_scope,
+    )
+
+    # Falls back to the process env outside any tenant scope.
+    monkeypatch.setenv("TAVILY_API_KEY", "global-key")
+    assert get_credential("TAVILY_API_KEY") == "global-key"
+
+    # Inside a tenant scope, the tenant's key wins and does not leak out.
+    acme = TenantConfig(tenant_id="acme", keys={"TAVILY_API_KEY": "acme-key"})
+    with tenant_scope(acme):
+        assert get_credential("TAVILY_API_KEY") == "acme-key"
+    assert get_credential("TAVILY_API_KEY") == "global-key"
+
+    # Per-tenant env vars are picked up by load_tenant.
+    monkeypatch.setenv("TENANT_BETA_TAVILY_API_KEY", "beta-key")
+    monkeypatch.setenv("TENANT_BETA_MODEL", "anthropic:claude-haiku-4-5-20251001")
+    cfg = load_tenant("beta")
+    assert cfg.keys.get("TAVILY_API_KEY") == "beta-key"
+    assert cfg.model == "anthropic:claude-haiku-4-5-20251001"
+
+
 def test_flags_toggle_subagents(monkeypatch):
     from research_agent import agent as agent_mod
 

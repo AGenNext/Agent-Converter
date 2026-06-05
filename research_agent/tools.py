@@ -27,6 +27,8 @@ import os
 import requests
 from langchain_core.tools import tool
 
+from research_agent.tenancy import get_credential
+
 # Lazy import so the package still imports without the optional dependency.
 try:  # pragma: no cover - exercised only when tavily is installed
     from tavily import TavilyClient
@@ -57,7 +59,7 @@ def tavily_search(query: str, max_results: int = 5, topic: str = "general") -> s
     company and investor context. `topic` may be "general", "news" or
     "finance". Returns a synthesised answer plus the top source results.
     """
-    key = os.environ.get("TAVILY_API_KEY")
+    key = get_credential("TAVILY_API_KEY")
     if not key or TavilyClient is None:
         return _missing("TAVILY_API_KEY", "Tavily")
     client = TavilyClient(api_key=key)
@@ -78,7 +80,7 @@ def web_search(query: str, max_results: int = 5) -> str:
     recent activity, a government statistic, or a single article. Returns the
     top results with titles, URLs and snippets.
     """
-    key = os.environ.get("TAVILY_API_KEY")
+    key = get_credential("TAVILY_API_KEY")
     if not key or TavilyClient is None:
         return _missing("TAVILY_API_KEY", "Tavily (web_search)")
     client = TavilyClient(api_key=key)
@@ -136,7 +138,7 @@ def perplexity_verify(claim_or_query: str) -> str:
     contradictions, and catch anything missed. Returns Perplexity's answer
     with citations.
     """
-    key = os.environ.get("PERPLEXITY_API_KEY")
+    key = get_credential("PERPLEXITY_API_KEY")
     if not key:
         return _missing("PERPLEXITY_API_KEY", "Perplexity")
     try:
@@ -181,7 +183,7 @@ def apollo_enrich(name: str = "", domain: str = "", email: str = "") -> str:
     Only returns what Apollo holds. Never invent contact details; if Apollo
     returns nothing, record a gap.
     """
-    key = os.environ.get("APOLLO_API_KEY")
+    key = get_credential("APOLLO_API_KEY")
     if not key:
         return _missing("APOLLO_API_KEY", "Apollo.io")
     try:
@@ -236,7 +238,7 @@ def pitchbook_search(query: str, entity_type: str = "any") -> str:
     fund or company overview, funding history, investors, portfolio, deal
     history and team bios.
     """
-    key = os.environ.get("PITCHBOOK_API_KEY")
+    key = get_credential("PITCHBOOK_API_KEY")
     if not key:
         return _missing("PITCHBOOK_API_KEY", "PitchBook")
     # TODO(builder): call the PitchBook API / data feed here and map the
@@ -250,7 +252,7 @@ def factset_query(query: str) -> str:
     """Financial and market data from FactSet (public company metrics, sector
     performance, benchmarks).
     """
-    key = os.environ.get("FACTSET_API_KEY")
+    key = get_credential("FACTSET_API_KEY")
     if not key:
         return _missing("FACTSET_API_KEY", "FactSet")
     # TODO(builder): call the FactSet AI-Ready Data API and summarise.
@@ -260,7 +262,7 @@ def factset_query(query: str) -> str:
 @tool
 def harmonic_lookup(company: str) -> str:
     """Company intelligence and growth signals from Harmonic."""
-    key = os.environ.get("HARMONIC_API_KEY")
+    key = get_credential("HARMONIC_API_KEY")
     if not key:
         return _missing("HARMONIC_API_KEY", "Harmonic")
     # TODO(builder): call the Harmonic API and summarise signals.
@@ -273,7 +275,7 @@ def clay_enrich(target: str, kind: str = "company") -> str:
 
     `kind` is "company" or "person".
     """
-    key = os.environ.get("CLAY_API_KEY")
+    key = get_credential("CLAY_API_KEY")
     if not key:
         return _missing("CLAY_API_KEY", "Clay")
     # TODO(builder): call the Clay enrichment API / table webhook and

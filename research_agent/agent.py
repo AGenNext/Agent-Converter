@@ -21,6 +21,7 @@ from deepagents import create_deep_agent
 from research_agent.flags import get_list, is_enabled
 from research_agent.prompts import ORCHESTRATOR_INSTRUCTIONS
 from research_agent.subagents import ALL_SUBAGENTS
+from research_agent.tenancy import TenantConfig, load_tenant
 from research_agent.tools import ALL_TOOLS
 
 
@@ -76,4 +77,23 @@ def build_agent(model=None):
     )
 
 
-__all__ = ["build_agent"]
+# Per-tenant agent cache. Each tenant gets its own compiled graph (so its model
+# choice sticks); credentials are still resolved per request via tenant_scope.
+_TENANT_AGENTS: dict[str, object] = {}
+
+
+def get_tenant_agent(tenant):
+    """Return a cached agent for a tenant.
+
+    `tenant` may be a tenant id (str) or a TenantConfig. The tenant's model
+    takes precedence over the env default.
+    """
+    config = tenant if isinstance(tenant, TenantConfig) else load_tenant(tenant)
+    cached = _TENANT_AGENTS.get(config.tenant_id)
+    if cached is None:
+        cached = build_agent(model=config.model)
+        _TENANT_AGENTS[config.tenant_id] = cached
+    return cached
+
+
+__all__ = ["build_agent", "get_tenant_agent"]

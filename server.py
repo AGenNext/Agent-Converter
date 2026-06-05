@@ -25,12 +25,13 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from research_agent import build_agent
+from research_agent.agent import get_tenant_agent
+from research_agent.tenancy import DEFAULT_TENANT, load_tenant, tenant_scope
 
 _API_DESCRIPTION = """
 HTTP API for the Research Deep Agent: an honest, well-sourced, confidence-tagged
@@ -85,7 +86,8 @@ _TOOL_KEYS = {
 @app.on_event("startup")
 def _startup() -> None:
     global _agent, _ready
-    _agent = build_agent()
+    # Warm the default tenant's agent so readiness reflects a real build.
+    _agent = get_tenant_agent(DEFAULT_TENANT)
     _ready = True
 
 
@@ -154,17 +156,27 @@ def info() -> dict:
     }
 
 
+def _tenant_header(x_tenant_id: str | None) -> str:
+    return x_tenant_id or DEFAULT_TENANT
+
+
 @app.post("/research", response_model=ResearchResponse, tags=["research"],
           summary="Run research and return the full report")
-def research(req: ResearchRequest) -> ResearchResponse:
-    if not _ready or _agent is None:
+def research(
+    req: ResearchRequest,
+    x_tenant_id: str = Header(default=DEFAULT_TENANT, alias="X-Tenant-ID"),
+) -> ResearchResponse:
+    if not _ready:
         raise HTTPException(status_code=503, detail="agent not ready")
     question = req.question.strip()
     if not question:
         raise HTTPException(status_code=422, detail="question must not be empty")
-    result = _agent.invoke(
-        {"messages": [{"role": "user", "content": question}]}
-    )
+    config = load_tenant(_tenant_header(x_tenant_id))
+    agent = get_tenant_agent(config)
+    with tenant_scope(config):
+        result = agent.invoke(
+            {"messages": [{"role": "user", "content": question}]}
+        )
     return ResearchResponse(answer=_text_of(result["messages"][-1].content))
 
 
@@ -193,29 +205,32 @@ def _cloud_event(ce_type: str, data, subject: str) -> str:
     return f"event: {ce_type}\ndata: {json.dumps(event)}\n\n"
 
 
-def _research_events(question: str, subject: str):
+def _research_events(question: str, subject: str, agent, config):
     yield _cloud_event(
         "io.agennext.research.accepted", {"question": question}, subject
     )
     try:
         inputs = {"messages": [{"role": "user", "content": question}]}
         final = ""
-        for mode, chunk in _agent.stream(
-            inputs, stream_mode=["updates", "messages"]
-        ):
-            if mode == "messages":
-                msg = chunk[0] if isinstance(chunk, tuple) else chunk
-                text = _text_of(getattr(msg, "content", ""))
-                if text:
-                    final += text
-                    yield _cloud_event(
-                        "io.agennext.research.token", {"text": text}, subject
-                    )
-            elif mode == "updates" and isinstance(chunk, dict):
-                for node in chunk:
-                    yield _cloud_event(
-                        "io.agennext.research.status", {"step": node}, subject
-                    )
+        # Enter the tenant scope inside the generator so credentials are bound
+        # on the thread that actually iterates the stream.
+        with tenant_scope(config):
+            for mode, chunk in agent.stream(
+                inputs, stream_mode=["updates", "messages"]
+            ):
+                if mode == "messages":
+                    msg = chunk[0] if isinstance(chunk, tuple) else chunk
+                    text = _text_of(getattr(msg, "content", ""))
+                    if text:
+                        final += text
+                        yield _cloud_event(
+                            "io.agennext.research.token", {"text": text}, subject
+                        )
+                elif mode == "updates" and isinstance(chunk, dict):
+                    for node in chunk:
+                        yield _cloud_event(
+                            "io.agennext.research.status", {"step": node}, subject
+                        )
         yield _cloud_event(
             "io.agennext.research.completed", {"answer": final}, subject
         )
@@ -231,25 +246,31 @@ def _research_events(question: str, subject: str):
 
 @app.post("/research/a2ui", tags=["research"],
           summary="Stream the result as A2UI surface messages")
-def research_a2ui(req: ResearchRequest) -> StreamingResponse:
+def research_a2ui(
+    req: ResearchRequest,
+    x_tenant_id: str = Header(default=DEFAULT_TENANT, alias="X-Tenant-ID"),
+) -> StreamingResponse:
     """Run research and stream the result as A2UI surface messages over SSE.
 
     Lets an A2UI-capable client render the output natively. See
     research_agent/a2ui.py and https://a2ui.org.
     """
-    if not _ready or _agent is None:
+    if not _ready:
         raise HTTPException(status_code=503, detail="agent not ready")
     question = req.question.strip()
     if not question:
         raise HTTPException(status_code=422, detail="question must not be empty")
+    config = load_tenant(_tenant_header(x_tenant_id))
+    agent = get_tenant_agent(config)
 
     from research_agent.a2ui import render_messages, sse_frames
 
     def gen():
         try:
-            result = _agent.invoke(
-                {"messages": [{"role": "user", "content": question}]}
-            )
+            with tenant_scope(config):
+                result = agent.invoke(
+                    {"messages": [{"role": "user", "content": question}]}
+                )
             answer = _text_of(result["messages"][-1].content)
             yield from sse_frames(render_messages(answer))
         except Exception:  # noqa: BLE001
@@ -269,16 +290,21 @@ def research_a2ui(req: ResearchRequest) -> StreamingResponse:
 
 @app.post("/research/stream", tags=["research"],
           summary="Stream progress as CloudEvents over SSE")
-def research_stream(req: ResearchRequest) -> StreamingResponse:
+def research_stream(
+    req: ResearchRequest,
+    x_tenant_id: str = Header(default=DEFAULT_TENANT, alias="X-Tenant-ID"),
+) -> StreamingResponse:
     """Stream the agent's progress in real time as CloudEvents over SSE."""
-    if not _ready or _agent is None:
+    if not _ready:
         raise HTTPException(status_code=503, detail="agent not ready")
     question = req.question.strip()
     if not question:
         raise HTTPException(status_code=422, detail="question must not be empty")
+    config = load_tenant(_tenant_header(x_tenant_id))
+    agent = get_tenant_agent(config)
     subject = str(uuid.uuid4())
     return StreamingResponse(
-        _research_events(question, subject),
+        _research_events(question, subject, agent, config),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
