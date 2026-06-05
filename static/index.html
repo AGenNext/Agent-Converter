@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<!-- API base for a static host (e.g. GitHub Pages). Set by the page author at
+     deploy time; empty means same-origin. Not read from the URL, so it cannot
+     be redirected by a crafted link. -->
+<meta name="research-api-base" content="" />
 <title>Research Deep Agent — Control Panel</title>
 <style>
   :root {
@@ -133,9 +137,16 @@
 
 <script src="a2ui-client.js"></script>
 <script>
-// API base. Same-origin by default; on a static host (e.g. GitHub Pages) point
-// the panel at a deployed backend with ?api=https://your-api
-const API_BASE = new URLSearchParams(location.search).get("api") || "";
+// API base. Same-origin by default. On a static host (e.g. GitHub Pages) the
+// page author sets a backend via window.RESEARCH_API_BASE or the
+// <meta name="research-api-base"> tag. We deliberately do NOT read this from
+// the URL/query string, so a crafted link cannot redirect the panel's requests
+// to an attacker-controlled host (client-side request forgery).
+const API_BASE = (
+  (typeof window !== "undefined" && window.RESEARCH_API_BASE) ||
+  document.querySelector('meta[name="research-api-base"]')?.content ||
+  ""
+).trim().replace(/\/+$/, "");
 
 const EXAMPLES = [
   "Research Parkwalk Advisors as a lead for a UK aerospace deep-tech £3.2M seed. Fit + red flags.",

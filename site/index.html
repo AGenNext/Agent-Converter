@@ -34,7 +34,7 @@
   <div class="grid">
     <a class="card" href="./panel/index.html">
       <h3>Control panel →</h3>
-      <p>The live chat UI. Append <code>?api=https://your-backend</code> to point it at a deployed API.</p>
+      <p>The live chat UI. Set <code>&lt;meta name="research-api-base"&gt;</code> to point it at a deployed API.</p>
     </a>
     <a class="card" href="./ui-mockup.html">
       <h3>UI mockup →</h3>
@@ -51,8 +51,9 @@
   </div>
 
   <p class="note">This is a static showcase. Live research needs the Python backend
-    running elsewhere (see the deployment docs); point the control panel at it with
-    the <code>?api=</code> parameter.</p>
+    running elsewhere (see the deployment docs); point the control panel at it by
+    setting the <code>research-api-base</code> meta tag or
+    <code>window.RESEARCH_API_BASE</code> at deploy time.</p>
 </div>
 </body>
 </html>
