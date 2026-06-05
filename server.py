@@ -26,7 +26,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -311,9 +311,11 @@ def research_stream(
 
 
 # Control panel. Mounted last so the API routes above take precedence.
+# Redirect "/" to the static-mounted index so the panel's relative asset refs
+# (e.g. a2ui-client.js) resolve the same way here as on a static host.
 if _STATIC.is_dir():
-    @app.get("/")
-    def panel() -> FileResponse:
-        return FileResponse(_STATIC / "index.html")
+    @app.get("/", tags=["ui"], include_in_schema=False)
+    def panel() -> RedirectResponse:
+        return RedirectResponse(url="/static/index.html")
 
     app.mount("/static", StaticFiles(directory=_STATIC), name="static")

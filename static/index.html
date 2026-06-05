@@ -131,8 +131,12 @@
   </main>
 </div>
 
-<script src="/static/a2ui-client.js"></script>
+<script src="a2ui-client.js"></script>
 <script>
+// API base. Same-origin by default; on a static host (e.g. GitHub Pages) point
+// the panel at a deployed backend with ?api=https://your-api
+const API_BASE = new URLSearchParams(location.search).get("api") || "";
+
 const EXAMPLES = [
   "Research Parkwalk Advisors as a lead for a UK aerospace deep-tech £3.2M seed. Fit + red flags.",
   "What is the global market size for digital twins in aerospace?",
@@ -223,7 +227,7 @@ async function ask(text){
   const ansEl=node.querySelector('[data-role="answer"]');
   let answer="";
   try{
-    const r=await fetch("/research/stream",{method:"POST",
+    const r=await fetch(`${API_BASE}/research/stream`,{method:"POST",
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify({question:text})});
     if(!r.ok||!r.body){ const e=await r.json().catch(()=>({detail:r.statusText}));
@@ -251,7 +255,7 @@ async function askA2UI(text){
   stepEl.textContent="Researching, then rendering an A2UI surface…";
   const client=new A2UIClient(ansEl);
   try{
-    const r=await fetch("/research/a2ui",{method:"POST",
+    const r=await fetch(`${API_BASE}/research/a2ui`,{method:"POST",
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify({question:text})});
     if(!r.ok||!r.body){ const e=await r.json().catch(()=>({detail:r.statusText}));
@@ -285,7 +289,7 @@ EXAMPLES.forEach(x=>{ const b=document.createElement("button"); b.textContent=x;
 // Poll status / tool config
 async function refresh(){
   try{
-    const r=await fetch("/api/info"); const info=await r.json();
+    const r=await fetch(`${API_BASE}/api/info`); const info=await r.json();
     document.getElementById("tag-conn").textContent = info.ready ? "ready" : "starting…";
     const led=document.getElementById("led-ready");
     led.className = "led " + (info.ready ? "on" : "off");
