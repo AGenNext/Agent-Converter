@@ -3,7 +3,7 @@
 IMAGE ?= research-deep-agent:latest
 
 .PHONY: help install test run cli image compose-up compose-down \
-        k8s-deploy operator-deploy chaos storybook
+        k8s-deploy operator-deploy chaos storybook mcp tofu-plan tofu-apply
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -41,3 +41,12 @@ chaos: ## Apply Chaos Mesh resilience experiments
 
 storybook: ## Run the UI component explorer (Storybook)
 	cd ui && npm install && npm run storybook
+
+mcp: ## Run the MCP server (stdio)
+	python mcp_server.py
+
+tofu-plan: ## OpenTofu plan (needs deploy/tofu/terraform.tfvars)
+	cd deploy/tofu && tofu init && tofu plan
+
+tofu-apply: ## OpenTofu apply to the target cluster
+	cd deploy/tofu && tofu init && tofu apply

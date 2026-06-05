@@ -1,0 +1,10 @@
+# k3s overlay: the base Deployment + Service, plus a Traefik Ingress so the
+# agent is reachable at the node IP.
+#   cp ../k8s/secret.example.yaml ../k8s/secret.yaml   # fill in keys
+#   kubectl apply -k deploy/k3s
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../k8s
+  - ingress.yaml

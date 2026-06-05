@@ -72,6 +72,23 @@ The chart is publishable to [Artifact Hub](https://artifacthub.io): see
 `deploy/operator/helm-charts/artifacthub-repo.yml` and the
 `artifacthub.io/*` annotations in `Chart.yaml`.
 
+## 5. Infrastructure as code (OpenTofu)
+
+Provision the whole thing declaratively with
+[OpenTofu](https://opentofu.org) instead of `kubectl`. It creates the
+namespace, the keys Secret, the Helm release, and a Traefik ingress (k3s).
+
+```bash
+cd deploy/tofu
+cp terraform.tfvars.example terraform.tfvars   # kubeconfig path + API keys
+tofu init && tofu apply
+```
+
+It uses the same Helm chart as the operator, so all three paths (kubectl,
+operator, OpenTofu) stay consistent. See `deploy/tofu/README.md`. On a k3s
+node, point `kubeconfig_path` at `/etc/rancher/k3s/k3s.yaml` and import the
+image into containerd first.
+
 ## Day-2 operations
 
 ### Cost — OpenCost
