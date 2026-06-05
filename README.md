@@ -19,6 +19,8 @@ when it is genuinely uncertain.
 | [docs/design-principles.md](docs/design-principles.md) | The principles behind the build |
 | [docs/best-practices.md](docs/best-practices.md) | Using, extending and operating the agent well |
 | [docs/extending.md](docs/extending.md) | Wire a premium source, add a pack, add output routing |
+| [docs/api.md](docs/api.md) | HTTP API: endpoints, streaming, OpenAPI docs |
+| [docs/mcp.md](docs/mcp.md) | MCP interface: tools and client registration |
 | [docs/deployment.md](docs/deployment.md) | Container, Kubernetes, operator, and day-2 ops |
 | [docs/ui-mockup.md](docs/ui-mockup.md) | Reference UI ([open the mockup](docs/ui-mockup.html)) |
 

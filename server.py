@@ -28,11 +28,38 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from research_agent import build_agent
 
-app = FastAPI(title="Research Deep Agent", version="1.0.0")
+_API_DESCRIPTION = """
+HTTP API for the Research Deep Agent: an honest, well-sourced, confidence-tagged
+research agent.
+
+- `POST /research` returns the full report in one response.
+- `POST /research/stream` streams progress in real time as CloudEvents over SSE.
+- `POST /research/a2ui` streams the result as A2UI surface messages.
+- `GET /healthz` / `GET /readyz` are the liveness / readiness probes.
+- `GET /api/info` reports the model and which tools are configured.
+
+Interactive docs: `/docs` (Swagger UI) and `/redoc` (ReDoc).
+The machine-readable schema is at `/openapi.json`.
+"""
+
+_TAGS_METADATA = [
+    {"name": "research", "description": "Run the research agent."},
+    {"name": "health", "description": "Liveness, readiness and service info."},
+    {"name": "ui", "description": "The bundled control panel."},
+]
+
+app = FastAPI(
+    title="Research Deep Agent",
+    version="1.0.0",
+    description=_API_DESCRIPTION,
+    openapi_tags=_TAGS_METADATA,
+    contact={"name": "AGenNext", "url": "https://github.com/AGenNext/Agent-Converter"},
+    license_info={"name": "MIT"},
+)
 
 logger = logging.getLogger("research_agent.server")
 
@@ -63,11 +90,21 @@ def _startup() -> None:
 
 
 class ResearchRequest(BaseModel):
-    question: str
+    question: str = Field(
+        ...,
+        min_length=1,
+        description="The research question in natural language. Name the "
+        "subject and the decision it informs for the best result.",
+        examples=[
+            "Research Parkwalk Advisors for a UK aerospace deep-tech seed round."
+        ],
+    )
 
 
 class ResearchResponse(BaseModel):
-    answer: str
+    answer: str = Field(
+        ..., description="The structured research report in markdown."
+    )
 
 
 def _text_of(content) -> str:
@@ -90,13 +127,13 @@ def _text_of(content) -> str:
     return ""
 
 
-@app.get("/healthz")
+@app.get("/healthz", tags=["health"])
 def healthz() -> dict:
     """Liveness: the process is running."""
     return {"status": "ok"}
 
 
-@app.get("/readyz")
+@app.get("/readyz", tags=["health"])
 def readyz() -> dict:
     """Readiness: the agent is built and can serve requests."""
     if not _ready or _agent is None:
@@ -104,7 +141,7 @@ def readyz() -> dict:
     return {"status": "ready"}
 
 
-@app.get("/api/info")
+@app.get("/api/info", tags=["health"])
 def info() -> dict:
     return {
         "name": "Research Deep Agent",
@@ -117,7 +154,8 @@ def info() -> dict:
     }
 
 
-@app.post("/research", response_model=ResearchResponse)
+@app.post("/research", response_model=ResearchResponse, tags=["research"],
+          summary="Run research and return the full report")
 def research(req: ResearchRequest) -> ResearchResponse:
     if not _ready or _agent is None:
         raise HTTPException(status_code=503, detail="agent not ready")
@@ -191,7 +229,8 @@ def _research_events(question: str, subject: str):
         )
 
 
-@app.post("/research/a2ui")
+@app.post("/research/a2ui", tags=["research"],
+          summary="Stream the result as A2UI surface messages")
 def research_a2ui(req: ResearchRequest) -> StreamingResponse:
     """Run research and stream the result as A2UI surface messages over SSE.
 
@@ -228,7 +267,8 @@ def research_a2ui(req: ResearchRequest) -> StreamingResponse:
     return StreamingResponse(gen(), media_type="text/event-stream")
 
 
-@app.post("/research/stream")
+@app.post("/research/stream", tags=["research"],
+          summary="Stream progress as CloudEvents over SSE")
 def research_stream(req: ResearchRequest) -> StreamingResponse:
     """Stream the agent's progress in real time as CloudEvents over SSE."""
     if not _ready or _agent is None:
