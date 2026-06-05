@@ -20,7 +20,15 @@ from research_agent import build_agent
 
 def _run(agent, question: str) -> None:
     result = agent.invoke({"messages": [{"role": "user", "content": question}]})
-    print(result["messages"][-1].content)
+    content = result["messages"][-1].content
+    # Content may be a string or a list of content blocks (e.g. Anthropic).
+    if isinstance(content, list):
+        content = "".join(
+            b if isinstance(b, str) else b.get("text", "")
+            for b in content
+            if isinstance(b, str) or isinstance(b, dict)
+        )
+    print(content)
 
 
 def main() -> None:

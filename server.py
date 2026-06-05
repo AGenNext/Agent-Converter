@@ -70,6 +70,26 @@ class ResearchResponse(BaseModel):
     answer: str
 
 
+def _text_of(content) -> str:
+    """Flatten a LangChain message content into plain text.
+
+    Anthropic (and other providers) may return content as a list of blocks
+    rather than a string, especially during tool use. Extract the text so
+    streaming tokens and final answers are never silently dropped.
+    """
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict) and block.get("type") == "text":
+                parts.append(block.get("text", ""))
+        return "".join(parts)
+    return ""
+
+
 @app.get("/healthz")
 def healthz() -> dict:
     """Liveness: the process is running."""
@@ -107,7 +127,7 @@ def research(req: ResearchRequest) -> ResearchResponse:
     result = _agent.invoke(
         {"messages": [{"role": "user", "content": question}]}
     )
-    return ResearchResponse(answer=result["messages"][-1].content)
+    return ResearchResponse(answer=_text_of(result["messages"][-1].content))
 
 
 # --- Real-time streaming as CloudEvents over SSE ---------------------------
@@ -147,8 +167,8 @@ def _research_events(question: str, subject: str):
         ):
             if mode == "messages":
                 msg = chunk[0] if isinstance(chunk, tuple) else chunk
-                text = getattr(msg, "content", "")
-                if isinstance(text, str) and text:
+                text = _text_of(getattr(msg, "content", ""))
+                if text:
                     final += text
                     yield _cloud_event(
                         "io.agennext.research.token", {"text": text}, subject
@@ -191,7 +211,7 @@ def research_a2ui(req: ResearchRequest) -> StreamingResponse:
             result = _agent.invoke(
                 {"messages": [{"role": "user", "content": question}]}
             )
-            answer = result["messages"][-1].content
+            answer = _text_of(result["messages"][-1].content)
             yield from sse_frames(render_messages(answer))
         except Exception:  # noqa: BLE001
             logger.exception("a2ui research failed")

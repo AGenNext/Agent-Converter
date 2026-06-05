@@ -22,7 +22,6 @@ import os
 from typing import Sequence
 
 from openfeature import api
-from openfeature.evaluation_context import EvaluationContext
 from openfeature.flag_evaluation import FlagResolutionDetails, Reason
 from openfeature.provider import AbstractProvider
 from openfeature.provider.metadata import Metadata
