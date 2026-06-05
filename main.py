@@ -1,0 +1,44 @@
+"""CLI entrypoint for the Research deep agent.
+
+Run a one-off research question:
+    python main.py "Research Parkwalk Advisors for Sumandra's GBP 3.2M seed"
+
+Or start an interactive session:
+    python main.py
+"""
+
+from __future__ import annotations
+
+import sys
+
+from research_agent import build_agent
+
+
+def _run(agent, question: str) -> None:
+    result = agent.invoke({"messages": [{"role": "user", "content": question}]})
+    print(result["messages"][-1].content)
+
+
+def main() -> None:
+    agent = build_agent()
+
+    if len(sys.argv) > 1:
+        _run(agent, " ".join(sys.argv[1:]))
+        return
+
+    print("Research deep agent. Type a question, or 'exit' to quit.\n")
+    while True:
+        try:
+            question = input("> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            break
+        if question.lower() in {"exit", "quit"}:
+            break
+        if question:
+            _run(agent, question)
+            print()
+
+
+if __name__ == "__main__":
+    main()
