@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: research-deep-agent
+  labels:
+    app.kubernetes.io/name: research-deep-agent
+    app.kubernetes.io/part-of: research-platform
+spec:
+  selector:
+    app.kubernetes.io/name: research-deep-agent
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+  type: ClusterIP

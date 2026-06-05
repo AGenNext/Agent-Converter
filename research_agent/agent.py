@@ -18,6 +18,7 @@ import os
 
 from deepagents import create_deep_agent
 
+from research_agent.flags import get_list, is_enabled
 from research_agent.prompts import ORCHESTRATOR_INSTRUCTIONS
 from research_agent.subagents import ALL_SUBAGENTS
 from research_agent.tools import ALL_TOOLS
@@ -38,6 +39,30 @@ def _resolve_model(model):
     return model or os.environ.get("RESEARCH_AGENT_MODEL") or DEFAULT_MODEL
 
 
+def _select_subagents():
+    """Filter the sub-agents using OpenFeature flags.
+
+    - research.enable_critique (default true): include the critique pack.
+    - research.enabled_packs (default empty): if non-empty, only research packs
+      whose name matches one of the listed tokens are attached. The critique
+      pack is governed solely by its own flag.
+    """
+    enable_critique = is_enabled("research.enable_critique", True)
+    only = [t.lower() for t in get_list("research.enabled_packs", [])]
+
+    selected = []
+    for sa in ALL_SUBAGENTS:
+        name = sa["name"]
+        if name == "critique":
+            if enable_critique:
+                selected.append(sa)
+            continue
+        if only and not any(tok in name for tok in only):
+            continue
+        selected.append(sa)
+    return selected
+
+
 def build_agent(model=None):
     """Build and return the compiled Research deep agent graph.
 
@@ -47,7 +72,7 @@ def build_agent(model=None):
         model=_resolve_model(model),
         tools=ALL_TOOLS,
         system_prompt=ORCHESTRATOR_INSTRUCTIONS,
-        subagents=ALL_SUBAGENTS,
+        subagents=_select_subagents(),
     )
 
 

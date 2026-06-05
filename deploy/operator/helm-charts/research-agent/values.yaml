@@ -1,0 +1,33 @@
+# Defaults. A ResearchAgent custom resource's .spec overrides these (the
+# operator passes .spec straight through as Helm values).
+replicaCount: 2
+
+image:
+  repository: research-deep-agent
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# Name of the Secret holding the API keys (ANTHROPIC_API_KEY, TAVILY_API_KEY, ...).
+secretName: research-agent-secrets
+
+# Model the agent runs, passed through as RESEARCH_AGENT_MODEL.
+model: "anthropic:claude-sonnet-4-5"
+
+service:
+  type: ClusterIP
+  port: 80
+
+# Requests drive OpenCost allocation; set them deliberately.
+resources:
+  requests:
+    cpu: "250m"
+    memory: "512Mi"
+  limits:
+    cpu: "1"
+    memory: "1Gi"
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70

@@ -9,6 +9,18 @@ higher than the cost of saying "I'm not sure." So it triangulates sources,
 tags every claim with a confidence level, never hides gaps, and stops to ask
 when it is genuinely uncertain.
 
+## Documentation
+
+| Doc | What's in it |
+| --- | --- |
+| [docs/architecture.md](docs/architecture.md) | How the deep agent is structured, with an architectural diagram |
+| [docs/usage.md](docs/usage.md) | How-to-use guide: install, configure, run, read the output |
+| [docs/configuration.md](docs/configuration.md) | Env vars, model selection, tool keys |
+| [docs/design-principles.md](docs/design-principles.md) | The principles behind the build |
+| [docs/best-practices.md](docs/best-practices.md) | Using, extending and operating the agent well |
+| [docs/extending.md](docs/extending.md) | Wire a premium source, add a pack, add output routing |
+| [docs/ui-mockup.md](docs/ui-mockup.md) | Reference UI ([open the mockup](docs/ui-mockup.html)) |
+
 ## Why a deep agent
 
 The deep-agents pattern gives us exactly what the spec asks for:

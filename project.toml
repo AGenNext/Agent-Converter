@@ -1,0 +1,29 @@
+# Cloud Native Buildpacks project descriptor.
+# Lets `pack build` produce an OCI image with no Dockerfile.
+# Docs: https://buildpacks.io/docs/reference/config/project-descriptor/
+
+[_]
+schema-version = "0.2"
+id = "research-deep-agent"
+name = "Research Deep Agent"
+version = "1.0.0"
+
+# Pin the CPython version the Paketo Python buildpack installs.
+[[build.env]]
+name = "BP_CPYTHON_VERSION"
+value = "3.11.*"
+
+[io.buildpacks]
+# Keep the image lean: don't ship local cruft into the build context.
+exclude = [
+  ".git",
+  ".github",
+  ".venv",
+  "venv",
+  ".pytest_cache",
+  "__pycache__",
+  ".env",
+  "tests",
+  "docs",
+  "deploy",
+]

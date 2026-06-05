@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Research Deep Agent — Control Panel</title>
+<style>
+  :root {
+    --bg:#0f1115; --panel:#171a21; --panel-2:#1e222b; --line:#2a2f3a;
+    --text:#e6e9ef; --muted:#9aa3b2; --accent:#6ea8fe;
+    --high:#2ec28a; --medium:#e8b341; --low:#e8853a; --unver:#8b93a3;
+    --chip-bg:#232733;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  .app { display:grid; grid-template-columns:280px 1fr; height:100vh; }
+
+  .sidebar { background:var(--panel); border-right:1px solid var(--line); padding:18px 16px; overflow-y:auto; }
+  .brand { display:flex; align-items:center; gap:10px; font-weight:700; font-size:16px; margin-bottom:6px; }
+  .brand .dot { width:10px; height:10px; border-radius:50%; background:var(--accent); box-shadow:0 0 12px var(--accent); }
+  .sub { color:var(--muted); font-size:12px; margin-bottom:16px; }
+  .nav-title { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.08em; margin:16px 4px 8px; }
+  .status { font-size:12.5px; }
+  .status .row { display:flex; align-items:center; gap:8px; padding:4px 4px; }
+  .led { width:8px; height:8px; border-radius:50%; background:var(--unver); flex:none; }
+  .led.on { background:var(--high); box-shadow:0 0 8px var(--high); }
+  .led.off { background:#3a3f4b; }
+  .examples button { display:block; width:100%; text-align:left; background:var(--panel-2);
+    color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px 10px;
+    font-size:12.5px; margin-bottom:8px; cursor:pointer; }
+  .examples button:hover { border-color:var(--accent); }
+
+  .main { display:flex; flex-direction:column; min-width:0; }
+  .topbar { padding:14px 22px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; }
+  .topbar h1 { font-size:15px; margin:0; font-weight:600; }
+  .topbar .tag { font-size:11px; color:var(--muted); border:1px solid var(--line); padding:2px 8px; border-radius:999px; }
+  .stream { flex:1; overflow-y:auto; padding:24px; }
+  .wrap { max-width:880px; margin:0 auto; }
+
+  .user { display:flex; justify-content:flex-end; margin-bottom:18px; }
+  .user .bubble { background:var(--accent); color:#08111f; padding:10px 14px;
+    border-radius:14px 14px 4px 14px; font-weight:500; max-width:75%; }
+
+  .agent { background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:18px 20px; margin-bottom:22px; }
+  .agent h1,.agent h2,.agent h3 { color:var(--text); }
+  .agent h2 { font-size:13px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted);
+    border-top:1px solid var(--line); padding-top:14px; margin-top:18px; }
+  .agent h2:first-child { border-top:0; padding-top:0; margin-top:0; }
+  .agent code { background:var(--chip-bg); padding:1px 5px; border-radius:5px; font-size:13px; }
+  .agent ul { padding-left:20px; }
+  .chip { font-size:10.5px; font-weight:700; letter-spacing:.04em; padding:1px 7px; border-radius:999px; }
+  .chip.high { background:rgba(46,194,138,.15); color:var(--high); border:1px solid rgba(46,194,138,.4); }
+  .chip.medium { background:rgba(232,179,65,.15); color:var(--medium); border:1px solid rgba(232,179,65,.4); }
+  .chip.low { background:rgba(232,133,58,.15); color:var(--low); border:1px solid rgba(232,133,58,.4); }
+  .chip.unver { background:rgba(139,147,163,.15); color:var(--unver); border:1px solid rgba(139,147,163,.4); }
+
+  .thinking { color:var(--muted); font-size:14px; display:flex; align-items:center; gap:10px; }
+  .spinner { width:16px; height:16px; border:2px solid var(--line); border-top-color:var(--accent);
+    border-radius:50%; animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .error { color:#ff8a8a; }
+
+  .composer { border-top:1px solid var(--line); padding:14px 22px; }
+  .composer .row { max-width:880px; margin:0 auto; display:flex; gap:10px; align-items:flex-end; }
+  .composer textarea { flex:1; background:var(--panel); border:1px solid var(--line); color:var(--text);
+    border-radius:10px; padding:11px 14px; font-size:14px; resize:vertical; min-height:48px; font-family:inherit; }
+  .composer .send { background:var(--accent); color:#08111f; border:0; border-radius:10px;
+    padding:12px 18px; font-weight:700; cursor:pointer; }
+  .composer .send:disabled { opacity:.5; cursor:not-allowed; }
+  .hint { max-width:880px; margin:8px auto 0; color:var(--muted); font-size:12px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><span class="dot"></span> Research Agent</div>
+    <div class="sub">Honest, well-sourced, confidence-tagged research.</div>
+
+    <div class="nav-title">Service status</div>
+    <div class="status" id="status">
+      <div class="row"><span class="led" id="led-ready"></span> <span id="txt-ready">checking…</span></div>
+      <div class="row"><span class="led off"></span> <span id="txt-model">model</span></div>
+    </div>
+
+    <div class="nav-title">Connected tools</div>
+    <div class="status" id="tools"></div>
+
+    <div class="nav-title">Try an example</div>
+    <div class="examples" id="examples"></div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <h1>Control panel</h1>
+      <span class="tag" id="tag-conn">connecting…</span>
+    </div>
+
+    <div class="stream"><div class="wrap" id="stream"></div></div>
+
+    <div class="composer">
+      <div class="row">
+        <textarea id="q" placeholder="Ask a research question. Name the subject and the decision it informs…"></textarea>
+        <button class="send" id="send">Research →</button>
+      </div>
+      <div class="hint">Tip: include the subject, the decision, your context and scope. The agent will ask if a question is too vague.</div>
+    </div>
+  </main>
+</div>
+
+<script>
+const EXAMPLES = [
+  "Research Parkwalk Advisors as a lead for a UK aerospace deep-tech £3.2M seed. Fit + red flags.",
+  "What is the global market size for digital twins in aerospace?",
+  "Profile Anthropic: what they do, funding, key people, competitors.",
+];
+const TOOL_LABELS = {
+  tavily:"Tavily", perplexity:"Perplexity", apollo:"Apollo",
+  pitchbook:"PitchBook", factset:"FactSet", harmonic:"Harmonic", clay:"Clay",
+};
+
+const stream = document.getElementById("stream");
+const qEl = document.getElementById("q");
+const sendEl = document.getElementById("send");
+
+function esc(s){ return s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+// Minimal, dependency-free markdown renderer (headings, bold, code, lists,
+// and confidence-tag chips) so the panel works with no external CDN.
+function renderMarkdown(md){
+  const lines = md.split("\n");
+  let html = "", inList = false;
+  const inline = t => esc(t)
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\b(HIGH|MEDIUM|LOW|UNVERIFIED)\b/g,
+      (m)=>`<span class="chip ${m==='UNVERIFIED'?'unver':m.toLowerCase()}">${m}</span>`);
+  for (let raw of lines){
+    const line = raw.replace(/\s+$/,"");
+    const li = line.match(/^\s*[-*]\s+(.*)/);
+    if (li){ if(!inList){ html+="<ul>"; inList=true; } html+="<li>"+inline(li[1])+"</li>"; continue; }
+    if (inList){ html+="</ul>"; inList=false; }
+    const h = line.match(/^(#{1,4})\s+(.*)/);
+    if (h){ const n=h[1].length; html+=`<h${n}>`+inline(h[2])+`</h${n}>`; continue; }
+    if (line.trim()===""){ html+=""; continue; }
+    html += "<p>"+inline(line)+"</p>";
+  }
+  if (inList) html+="</ul>";
+  return html;
+}
+
+function addUser(text){
+  const d=document.createElement("div"); d.className="user";
+  d.innerHTML=`<div class="bubble">${esc(text)}</div>`;
+  stream.appendChild(d); d.scrollIntoView({behavior:"smooth"});
+}
+function addAgentNode(){
+  const d=document.createElement("div"); d.className="agent";
+  d.innerHTML=`<div class="thinking" data-role="status"><span class="spinner"></span> <span data-role="step">Starting…</span></div><div data-role="answer"></div>`;
+  stream.appendChild(d); d.scrollIntoView({behavior:"smooth"}); return d;
+}
+
+// Friendly labels for the agent's internal step nodes.
+function stepLabel(step){
+  const s=String(step).toLowerCase();
+  if(s.includes("todo")||s.includes("plan")) return "Planning the research…";
+  if(s.includes("tool")) return "Gathering from sources…";
+  if(s.includes("task")||s.includes("sub")) return "Delegating to a specialist pack…";
+  if(s.includes("model")||s==="agent") return "Reasoning and synthesising…";
+  return "Working: "+esc(step);
+}
+
+// Parse a Server-Sent Events stream and yield {event, data} CloudEvents.
+async function* sseEvents(resp){
+  const reader=resp.body.getReader(); const dec=new TextDecoder(); let buf="";
+  while(true){
+    const {value,done}=await reader.read(); if(done) break;
+    buf+=dec.decode(value,{stream:true});
+    let i;
+    while((i=buf.indexOf("\n\n"))>=0){
+      const frame=buf.slice(0,i); buf=buf.slice(i+2);
+      let ev=null, data="";
+      for(const line of frame.split("\n")){
+        if(line.startsWith("event:")) ev=line.slice(6).trim();
+        else if(line.startsWith("data:")) data+=line.slice(5).trim();
+      }
+      if(data){ try{ yield {event:ev, ce:JSON.parse(data)}; }catch(_){} }
+    }
+  }
+}
+
+async function ask(text){
+  if(!text.trim()) return;
+  qEl.value=""; sendEl.disabled=true;
+  addUser(text);
+  const node=addAgentNode();
+  const statusEl=node.querySelector('[data-role="status"]');
+  const stepEl=node.querySelector('[data-role="step"]');
+  const ansEl=node.querySelector('[data-role="answer"]');
+  let answer="";
+  try{
+    const r=await fetch("/research/stream",{method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({question:text})});
+    if(!r.ok||!r.body){ const e=await r.json().catch(()=>({detail:r.statusText}));
+      statusEl.remove(); ansEl.innerHTML=`<div class="error">Error ${r.status}: ${esc(e.detail||"request failed")}</div>`; return; }
+    for await (const {ce} of sseEvents(r)){
+      const t=ce.type||"";
+      if(t.endsWith(".status")){ stepEl.textContent=""; stepEl.innerHTML=stepLabel(ce.data.step); }
+      else if(t.endsWith(".token")){ answer+=ce.data.text||""; ansEl.innerHTML=renderMarkdown(answer); node.scrollIntoView({block:"end"}); }
+      else if(t.endsWith(".completed")){ if(ce.data.answer) { answer=ce.data.answer; ansEl.innerHTML=renderMarkdown(answer); } statusEl.remove(); }
+      else if(t.endsWith(".error")){ statusEl.remove(); ansEl.innerHTML+=`<div class="error">${esc(ce.data.message||"error")}</div>`; }
+    }
+  }catch(err){ statusEl.remove(); ansEl.innerHTML=`<div class="error">Network error: ${esc(String(err))}</div>`; }
+  finally{ sendEl.disabled=false; node.scrollIntoView({behavior:"smooth"}); }
+}
+
+sendEl.onclick=()=>ask(qEl.value);
+qEl.addEventListener("keydown",e=>{ if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)) ask(qEl.value); });
+
+// Examples
+const exWrap=document.getElementById("examples");
+EXAMPLES.forEach(x=>{ const b=document.createElement("button"); b.textContent=x;
+  b.onclick=()=>{ qEl.value=x; qEl.focus(); }; exWrap.appendChild(b); });
+
+// Poll status / tool config
+async function refresh(){
+  try{
+    const r=await fetch("/api/info"); const info=await r.json();
+    document.getElementById("tag-conn").textContent = info.ready ? "ready" : "starting…";
+    const led=document.getElementById("led-ready");
+    led.className = "led " + (info.ready ? "on" : "off");
+    document.getElementById("txt-ready").textContent = info.ready ? "Agent ready" : "Agent starting";
+    document.getElementById("txt-model").textContent = info.model;
+    const tw=document.getElementById("tools"); tw.innerHTML="";
+    Object.entries(info.tools).forEach(([k,on])=>{
+      const row=document.createElement("div"); row.className="row";
+      row.innerHTML=`<span class="led ${on?'on':'off'}"></span> ${TOOL_LABELS[k]||k} <span style="margin-left:auto;color:var(--muted)">${on?'live':'stub'}</span>`;
+      tw.appendChild(row);
+    });
+  }catch(e){ document.getElementById("tag-conn").textContent="offline"; }
+}
+refresh(); setInterval(refresh, 5000);
+</script>
+</body>
+</html>

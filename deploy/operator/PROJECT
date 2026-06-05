@@ -1,0 +1,14 @@
+# Generated-style operator-sdk project file for a Helm-based operator.
+domain: agennext.ai
+layout:
+  - helm.sdk.operatorframework.io/v1
+projectName: research-agent-operator
+resources:
+  - api:
+      crdVersion: v1
+      namespaced: true
+    domain: agennext.ai
+    group: research
+    kind: ResearchAgent
+    version: v1alpha1
+version: "3"

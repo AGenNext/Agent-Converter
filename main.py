@@ -5,10 +5,14 @@ Run a one-off research question:
 
 Or start an interactive session:
     python main.py
+
+For a one-shot run (e.g. a Kubernetes Job), set the QUESTION env var:
+    QUESTION="Research ..." python main.py
 """
 
 from __future__ import annotations
 
+import os
 import sys
 
 from research_agent import build_agent
@@ -24,6 +28,11 @@ def main() -> None:
 
     if len(sys.argv) > 1:
         _run(agent, " ".join(sys.argv[1:]))
+        return
+
+    question_env = os.environ.get("QUESTION")
+    if question_env:
+        _run(agent, question_env)
         return
 
     print("Research deep agent. Type a question, or 'exit' to quit.\n")

@@ -74,6 +74,22 @@ def test_agent_builds():
     assert agent is not None
 
 
+def test_flags_toggle_subagents(monkeypatch):
+    from research_agent import agent as agent_mod
+
+    # Critique on by default.
+    names = {sa["name"] for sa in agent_mod._select_subagents()}
+    assert "critique" in names
+    assert "investor-research" in names
+
+    # Disable critique and restrict to one pack.
+    monkeypatch.setenv("OF_RESEARCH_ENABLE_CRITIQUE", "false")
+    monkeypatch.setenv("OF_RESEARCH_ENABLED_PACKS", "investor")
+    names = {sa["name"] for sa in agent_mod._select_subagents()}
+    assert "critique" not in names
+    assert names == {"investor-research"}
+
+
 # --- Layer 2: live spec test cases (manual grading) ------------------------
 
 LIVE_CASES = {

@@ -1,0 +1,19 @@
+# Chaos Mesh: randomly kill one agent pod to verify the Deployment recovers
+# and readiness probes gate traffic correctly.
+# Apply with Chaos Mesh installed: kubectl apply -f deploy/chaos/pod-kill.yaml
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: research-agent-pod-kill
+  namespace: default
+spec:
+  action: pod-kill
+  mode: one
+  selector:
+    namespaces:
+      - default
+    labelSelectors:
+      app.kubernetes.io/name: research-deep-agent
+  duration: "30s"
+  scheduler:
+    cron: "@every 10m"
