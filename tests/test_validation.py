@@ -74,6 +74,25 @@ def test_agent_builds():
     assert agent is not None
 
 
+def test_default_model_is_local_first(monkeypatch):
+    from research_agent.agent import default_model
+
+    for var in ("RESEARCH_AGENT_MODEL", "ANTHROPIC_API_KEY", "OPENAI_API_KEY",
+                "GOOGLE_API_KEY", "LOCAL_MODEL"):
+        monkeypatch.delenv(var, raising=False)
+
+    # No keys at all -> local Ollama default (zero-config local run).
+    assert default_model().startswith("ollama:")
+
+    # A recognised cloud key flips the default to that provider.
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
+    assert default_model().startswith("anthropic:")
+
+    # An explicit model id always wins.
+    monkeypatch.setenv("RESEARCH_AGENT_MODEL", "openai:gpt-4.1-mini")
+    assert default_model() == "openai:gpt-4.1-mini"
+
+
 def test_message_text_flattens_content():
     from research_agent.content import message_text
 

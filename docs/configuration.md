@@ -3,12 +3,37 @@
 All configuration is via environment variables, read from `.env` (copy
 `.env.example`). The agent runs on whatever subset you provide.
 
-## Model
+## Model (vendor-neutral, local-first)
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `ANTHROPIC_API_KEY` | (required for the default model) | Auth for Claude |
-| `RESEARCH_AGENT_MODEL` | `anthropic:claude-sonnet-4-5` | Override the model, `provider:model-name` format |
+The agent runs on any LangChain-supported provider and resolves its default
+model with this precedence:
+
+1. `RESEARCH_AGENT_MODEL` (an explicit `provider:model` id) — always wins.
+2. A recognised cloud key: `ANTHROPIC_API_KEY` → Claude, `OPENAI_API_KEY` →
+   GPT, `GOOGLE_API_KEY` → Gemini.
+3. `LOCAL_MODEL`, else the local default `ollama:tinyllama`.
+
+So with **no keys set it runs fully locally** via Ollama, and adding a cloud key
+(or `RESEARCH_AGENT_MODEL`) switches it to a hosted model.
+
+| Variable | Purpose |
+| --- | --- |
+| `RESEARCH_AGENT_MODEL` | Force a specific model, `provider:model` format |
+| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GOOGLE_API_KEY` | Use that cloud provider's default |
+| `LOCAL_MODEL` | Override the local default (e.g. `ollama:llama3.1`) |
+
+### Run fully local (Ollama)
+
+```bash
+# install Ollama (https://ollama.com), then:
+ollama pull tinyllama        # or a tool-capable model: ollama pull llama3.1
+pip install -r requirements.txt
+python main.py "Research ..."   # no API keys needed
+```
+
+Caveat: small models such as `tinyllama` often cannot drive the multi-tool
+agent loop reliably. For real research use a tool-capable local model
+(`LOCAL_MODEL=ollama:llama3.1`) or a cloud key.
 
 You can also pass a model directly in code, which takes precedence over the
 env var:

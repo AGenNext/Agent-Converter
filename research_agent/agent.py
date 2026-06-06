@@ -25,19 +25,50 @@ from research_agent.tenancy import TenantConfig, load_tenant
 from research_agent.tools import ALL_TOOLS
 
 
-# Sensible default. deepagents accepts a "provider:model" string and resolves
-# it via LangChain's init_chat_model, so no extra wiring is needed.
-DEFAULT_MODEL = "anthropic:claude-sonnet-4-5"
+# deepagents accepts a "provider:model" string and resolves it via LangChain's
+# init_chat_model, so the agent is vendor-neutral. We are local-first: with no
+# cloud key configured the agent defaults to a local Ollama model, so it runs
+# with zero API keys. Set a cloud key (or RESEARCH_AGENT_MODEL) to use a hosted
+# model instead.
+CLOUD_DEFAULT_MODEL = "anthropic:claude-sonnet-4-5"
+LOCAL_DEFAULT_MODEL = "ollama:tinyllama"
+
+# Cloud providers we recognise by their conventional API-key env var.
+_CLOUD_KEYS = {
+    "ANTHROPIC_API_KEY": "anthropic:claude-sonnet-4-5",
+    "OPENAI_API_KEY": "openai:gpt-4.1-mini",
+    "GOOGLE_API_KEY": "google_genai:gemini-2.0-flash",
+}
+
+
+def default_model() -> str:
+    """Resolve the default model id (vendor-neutral, local-first).
+
+    Precedence: RESEARCH_AGENT_MODEL > a recognised cloud provider key >
+    LOCAL_MODEL > the local Ollama default. Note: small local models may not
+    handle the multi-tool agent loop well; for real use point LOCAL_MODEL at a
+    tool-capable local model (e.g. ollama:llama3.1) or set a cloud key.
+    """
+    explicit = os.environ.get("RESEARCH_AGENT_MODEL")
+    if explicit:
+        return explicit
+    for env_key, model in _CLOUD_KEYS.items():
+        if os.environ.get(env_key):
+            return model
+    return os.environ.get("LOCAL_MODEL") or LOCAL_DEFAULT_MODEL
+
+
+# Backwards-compatible alias.
+DEFAULT_MODEL = CLOUD_DEFAULT_MODEL
 
 
 def _resolve_model(model):
-    """Pick the chat model.
+    """Pick the chat model: explicit arg wins, else the resolved default.
 
-    Precedence: explicit `model` arg > RESEARCH_AGENT_MODEL env var >
-    DEFAULT_MODEL. Always returns something concrete so we never hit the
-    deprecated `model=None` path.
+    Always returns something concrete so we never hit the deprecated
+    `model=None` path.
     """
-    return model or os.environ.get("RESEARCH_AGENT_MODEL") or DEFAULT_MODEL
+    return model or default_model()
 
 
 def _select_subagents():

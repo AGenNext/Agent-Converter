@@ -34,7 +34,7 @@ from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from research_agent.agent import DEFAULT_MODEL, get_tenant_agent
+from research_agent.agent import default_model, get_tenant_agent
 from research_agent.content import message_text
 from research_agent.tenancy import (
     DEFAULT_TENANT,
@@ -138,7 +138,7 @@ def info() -> dict:
     return {
         "name": "Research Deep Agent",
         "version": "1.0.0",
-        "model": os.environ.get("RESEARCH_AGENT_MODEL", DEFAULT_MODEL),
+        "model": default_model(),
         "ready": _ready,
         "tools": {
             name: bool(os.environ.get(env)) for name, env in _TOOL_KEYS.items()
