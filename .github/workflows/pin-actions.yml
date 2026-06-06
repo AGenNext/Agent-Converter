@@ -5,8 +5,15 @@ name: Pin actions to SHAs
 # can run even while the other workflows are refused at startup. It resolves
 # each action tag to a commit SHA with the gh CLI and rewrites every workflow,
 # then pushes the pinned result to the branch.
+#
+# Triggered on push to this file (the repo default branch isn't main, so
+# workflow_dispatch can't target it) and via dispatch where available.
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/pin-actions.yml
   workflow_dispatch:
 
 permissions:
