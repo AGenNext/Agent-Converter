@@ -9,7 +9,7 @@ description = "A LangChain deep agent implementation of the Research Agent build
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "deepagents>=0.0.5",
+    "deepagents>=0.6,<1.0",
     "langchain>=0.3",
     "langchain-anthropic>=0.3",
     "tavily-python>=0.5",

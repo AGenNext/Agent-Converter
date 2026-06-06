@@ -74,6 +74,21 @@ def test_agent_builds():
     assert agent is not None
 
 
+def test_message_text_flattens_content():
+    from research_agent.content import message_text
+
+    assert message_text("hello") == "hello"
+    assert message_text("") == ""
+    # Anthropic-style list of content blocks.
+    blocks = [
+        {"type": "text", "text": "part one "},
+        {"type": "tool_use", "name": "x"},  # non-text block ignored
+        {"type": "text", "text": "part two"},
+    ]
+    assert message_text(blocks) == "part one part two"
+    assert message_text(None) == ""
+
+
 def test_a2ui_render_messages():
     from research_agent.a2ui import render_messages
 

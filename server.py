@@ -9,11 +9,15 @@ Run locally:
 Then open http://localhost:8080
 
 Endpoints:
-    GET  /            the control panel (web dashboard)
-    GET  /healthz     liveness  (process is up)
-    GET  /readyz      readiness (agent built and ready)
-    GET  /api/info    service + tool configuration status (JSON)
-    POST /research    {"question": "..."} -> {"answer": "..."}
+    GET  /                the control panel (web dashboard)
+    GET  /healthz         liveness  (process is up)
+    GET  /readyz          readiness (agent built and ready)
+    GET  /api/info        service + tool configuration status (JSON)
+    POST /research        {"question": "..."} -> {"answer": "..."}
+    POST /research/stream progress as CloudEvents over SSE
+    POST /research/a2ui   the result as A2UI surface messages over SSE
+
+All POST endpoints accept an optional `X-Tenant-ID` header for multi-tenancy.
 """
 
 from __future__ import annotations
@@ -30,8 +34,14 @@ from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from research_agent.agent import get_tenant_agent
-from research_agent.tenancy import DEFAULT_TENANT, load_tenant, tenant_scope
+from research_agent.agent import DEFAULT_MODEL, get_tenant_agent
+from research_agent.content import message_text
+from research_agent.tenancy import (
+    DEFAULT_TENANT,
+    current_tenant_id,
+    load_tenant,
+    tenant_scope,
+)
 
 _API_DESCRIPTION = """
 HTTP API for the Research Deep Agent: an honest, well-sourced, confidence-tagged
@@ -109,26 +119,6 @@ class ResearchResponse(BaseModel):
     )
 
 
-def _text_of(content) -> str:
-    """Flatten a LangChain message content into plain text.
-
-    Anthropic (and other providers) may return content as a list of blocks
-    rather than a string, especially during tool use. Extract the text so
-    streaming tokens and final answers are never silently dropped.
-    """
-    if isinstance(content, str):
-        return content
-    if isinstance(content, list):
-        parts = []
-        for block in content:
-            if isinstance(block, str):
-                parts.append(block)
-            elif isinstance(block, dict) and block.get("type") == "text":
-                parts.append(block.get("text", ""))
-        return "".join(parts)
-    return ""
-
-
 @app.get("/healthz", tags=["health"])
 def healthz() -> dict:
     """Liveness: the process is running."""
@@ -148,7 +138,7 @@ def info() -> dict:
     return {
         "name": "Research Deep Agent",
         "version": "1.0.0",
-        "model": os.environ.get("RESEARCH_AGENT_MODEL", "anthropic:claude-sonnet-4-5"),
+        "model": os.environ.get("RESEARCH_AGENT_MODEL", DEFAULT_MODEL),
         "ready": _ready,
         "tools": {
             name: bool(os.environ.get(env)) for name, env in _TOOL_KEYS.items()
@@ -177,7 +167,7 @@ def research(
         result = agent.invoke(
             {"messages": [{"role": "user", "content": question}]}
         )
-    return ResearchResponse(answer=_text_of(result["messages"][-1].content))
+    return ResearchResponse(answer=message_text(result["messages"][-1].content))
 
 
 # --- Real-time streaming as CloudEvents over SSE ---------------------------
@@ -220,7 +210,7 @@ def _research_events(question: str, subject: str, agent, config):
             ):
                 if mode == "messages":
                     msg = chunk[0] if isinstance(chunk, tuple) else chunk
-                    text = _text_of(getattr(msg, "content", ""))
+                    text = message_text(getattr(msg, "content", ""))
                     if text:
                         final += text
                         yield _cloud_event(
@@ -236,7 +226,10 @@ def _research_events(question: str, subject: str, agent, config):
         )
     except Exception:  # noqa: BLE001
         # Log the detail server-side; never expose exception text to the client.
-        logger.exception("research stream failed for subject %s", subject)
+        logger.exception(
+            "research stream failed (tenant=%s subject=%s)",
+            current_tenant_id(), subject,
+        )
         yield _cloud_event(
             "io.agennext.research.error",
             {"message": "Research failed. Please try again."},
@@ -271,7 +264,7 @@ def research_a2ui(
                 result = agent.invoke(
                     {"messages": [{"role": "user", "content": question}]}
                 )
-            answer = _text_of(result["messages"][-1].content)
+            answer = message_text(result["messages"][-1].content)
             yield from sse_frames(render_messages(answer))
         except Exception:  # noqa: BLE001
             logger.exception("a2ui research failed")

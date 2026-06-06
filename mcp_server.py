@@ -30,6 +30,7 @@ import os
 from mcp.server.fastmcp import FastMCP
 
 from research_agent import build_agent
+from research_agent.content import message_text
 
 mcp = FastMCP("research-agent")
 
@@ -44,23 +45,11 @@ def _get_agent():
     return _agent
 
 
-def _text_of(content) -> str:
-    if isinstance(content, str):
-        return content
-    if isinstance(content, list):
-        return "".join(
-            b if isinstance(b, str) else b.get("text", "")
-            for b in content
-            if isinstance(b, (str, dict))
-        )
-    return ""
-
-
 def _run(question: str) -> str:
     result = _get_agent().invoke(
         {"messages": [{"role": "user", "content": question}]}
     )
-    return _text_of(result["messages"][-1].content)
+    return message_text(result["messages"][-1].content)
 
 
 @mcp.tool()
