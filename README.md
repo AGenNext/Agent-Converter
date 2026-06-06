@@ -32,7 +32,7 @@ The deep-agents pattern gives us exactly what the spec asks for:
 
 | Spec concept | Deep-agents mechanism |
 | --- | --- |
-| The research process (Frame -> Decompose -> ... -> Stress-Test) | Orchestrator `instructions` + the built-in `write_todos` planner |
+| The research process (Frame -> Decompose -> ... -> Stress-Test) | Orchestrator `system_prompt` + the built-in `write_todos` planner |
 | Source packs (Section 4), each with its own tool routing | One **sub-agent** per pack, each with a scoped tool allow-list and its own context window |
 | Step 8 stress-test (inversion / bias / completeness) | A dedicated `critique` sub-agent |
 | Carrying findings between steps without losing detail | The built-in virtual **file system** (`write_file` / `read_file`) used as a scratchpad |
@@ -102,6 +102,45 @@ print(result["messages"][-1].content)
 
 The agent returns a compiled LangGraph graph, so `.invoke`, `.stream` and
 async variants all work, and you can drop it into LangGraph Studio.
+
+## Interfaces
+
+The same agent is exposed several ways:
+
+| Interface | How | Docs |
+| --- | --- | --- |
+| CLI | `python main.py "question"` (or `make cli`) | — |
+| Control panel | `make run` → open `http://localhost:8080`, a natural-language chat UI with live streaming and two render modes (markdown / A2UI) | [ui-mockup](docs/ui-mockup.md) |
+| HTTP API | `POST /research`; OpenAPI at `/docs`, `/redoc`, `/openapi.json` | [api](docs/api.md) |
+| Real-time | `POST /research/stream` streams progress as [CloudEvents](https://github.com/cloudevents/spec) over SSE | [api](docs/api.md) |
+| A2UI | `POST /research/a2ui` streams [A2UI](https://a2ui.org) surface messages a client renders natively | [api](docs/api.md) |
+| MCP | `python mcp_server.py` exposes `research` / `research_pack` tools over the Model Context Protocol | [mcp](docs/mcp.md) |
+
+[Multi-tenancy](docs/multi-tenancy.md): send `X-Tenant-ID` to isolate
+credentials and model per tenant.
+
+## Deploy
+
+The agent ships as a long-running, Kubernetes-native service. Pick a level:
+
+```bash
+make image            # build an OCI image with Cloud Native Buildpacks
+docker compose up     # run locally (reads .env)
+make k8s-deploy       # kubectl apply -k deploy/k8s
+make operator-deploy  # install the ResearchAgent operator (CRD + chart)
+cd deploy/tofu && tofu apply   # provision with OpenTofu (k3s/any cluster)
+```
+
+Day-2 ops are covered too: OpenCost (cost labels), Kubetail (logs), Chaos Mesh
+(resilience), OpenFeature (flags). A GitHub Pages workflow publishes the static
+UI showcase. See [deployment](docs/deployment.md).
+
+## Security and supply chain
+
+Container runs non-root with a read-only root filesystem; CI audits
+dependencies (`pip-audit`, Dependabot), generates CycloneDX SBOMs, and signs
+release images with cosign keyless. See [supply-chain](docs/supply-chain.md)
+and [SECURITY.md](SECURITY.md).
 
 ## Wiring the premium sources
 
