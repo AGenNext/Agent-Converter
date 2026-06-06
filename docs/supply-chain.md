@@ -78,6 +78,23 @@ the workflow identity and recorded in the public Rekor transparency log.
   `pyproject.toml`. For fully reproducible builds, add a lockfile (pip-tools or
   uv) and have CI install from it.
 
+## CI hardening
+
+- **Least privilege**: every workflow declares minimal `permissions`; the Pages
+  build job is `contents: read`, and only the deploy job gets `pages: write` /
+  `id-token: write`.
+- **No mutable-tag third-party Actions**: release tooling (pack, cosign) is
+  installed inline at pinned versions, with cosign verified against its
+  published checksums and pack verifiable via `PACK_SHA256`. Only GitHub-owned
+  `actions/*` are used via `uses:`.
+- **`persist-credentials: false`** on checkout so the `GITHUB_TOKEN` is not
+  left on disk for later steps.
+- **Immutable image refs**: the release signs the image by digest, not tag.
+- **Dependabot** (`.github/dependabot.yml`) keeps pip, npm and github-actions
+  dependencies patched.
+
+See also [SECURITY.md](../SECURITY.md).
+
 ## Practices
 
 - Keep `pip-audit` and SBOM generation in CI.
