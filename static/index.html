@@ -90,6 +90,40 @@
   .a2-column { display:flex; flex-direction:column; gap:6px; }
   .a2-card { background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:12px; margin:8px 0; }
   .a2-button { background:var(--accent); color:#08111f; border:0; border-radius:8px; padding:6px 12px; font-weight:600; cursor:pointer; }
+
+  /* Onboarding wizard */
+  .overlay { position:fixed; inset:0; background:rgba(6,8,12,.78); display:flex;
+    align-items:center; justify-content:center; z-index:50; }
+  .overlay.hidden { display:none; }
+  .wizard { width:min(560px,92vw); background:var(--panel); border:1px solid var(--line);
+    border-radius:16px; padding:26px 28px; box-shadow:0 20px 60px rgba(0,0,0,.5); }
+  .wizard .steps { display:flex; gap:6px; margin-bottom:18px; }
+  .wizard .steps .pip { height:4px; flex:1; border-radius:3px; background:var(--line); }
+  .wizard .steps .pip.done { background:var(--accent); }
+  .wizard h2 { margin:0 0 6px; font-size:20px; }
+  .wizard p.desc { color:var(--muted); margin:0 0 18px; font-size:14px; }
+  .wizard label.field { display:block; margin:14px 0; }
+  .wizard label.field .lab { display:block; font-size:13px; margin-bottom:6px; }
+  .wizard label.field .help { color:var(--muted); font-size:12px; margin-top:5px; }
+  .wizard input[type=text], .wizard select { width:100%; background:var(--panel-2);
+    border:1px solid var(--line); color:var(--text); border-radius:9px; padding:10px 12px; font-size:14px; }
+  .wizard .default-tag { font-size:11px; color:var(--accent); margin-left:6px; }
+  .wizard .review { background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:12px 14px; font-size:13.5px; }
+  .wizard .review div { display:flex; justify-content:space-between; padding:4px 0; }
+  .wizard .review .k { color:var(--muted); }
+  .wizard .ack { display:flex; gap:9px; align-items:flex-start; margin-top:16px; font-size:13.5px; }
+  .wizard .ack input { margin-top:3px; }
+  .wizard .nav { display:flex; justify-content:space-between; gap:10px; margin-top:22px; }
+  .wizard .nav button { border-radius:9px; padding:10px 16px; font-weight:600; cursor:pointer; font-size:14px; }
+  .wizard .nav .back { background:transparent; color:var(--muted); border:1px solid var(--line); }
+  .wizard .nav .next { background:var(--accent); color:#08111f; border:0; }
+  .wizard .nav .next:disabled { opacity:.45; cursor:not-allowed; }
+  .reconfig { margin-top:10px; }
+  .reconfig button { width:100%; background:transparent; color:var(--muted); border:1px solid var(--line);
+    border-radius:8px; padding:7px 10px; font-size:12.5px; cursor:pointer; }
+  .reconfig button:hover { border-color:var(--accent); color:var(--text); }
+  .locked-badge { font-size:10px; color:var(--high); border:1px solid rgba(46,194,138,.4);
+    background:rgba(46,194,138,.12); padding:1px 7px; border-radius:999px; margin-left:8px; }
 </style>
 </head>
 <body>
@@ -109,6 +143,8 @@
 
     <div class="nav-title">Try an example</div>
     <div class="examples" id="examples"></div>
+
+    <div class="reconfig"><button id="reconfigure">⚙ Reconfigure</button></div>
   </aside>
 
   <main class="main">
@@ -135,18 +171,55 @@
   </main>
 </div>
 
+<!-- Step-by-step onboarding wizard. Built with the Research Agent UI kit
+     (../ui, Storybook); pairs with assistant-ui for a full React frontend. -->
+<div class="overlay hidden" id="onboarding">
+  <div class="wizard">
+    <div class="steps" id="wiz-steps"></div>
+    <div id="wiz-body"></div>
+    <div class="nav">
+      <button class="back" id="wiz-back">Back</button>
+      <button class="next" id="wiz-next">Next</button>
+    </div>
+    <div style="text-align:center;margin-top:14px;color:var(--muted);font-size:11px">
+      Research Agent UI kit · pairs with the
+      <a href="https://www.assistant-ui.com" style="color:var(--accent)">assistant-ui</a> chat kit
+    </div>
+  </div>
+</div>
+
 <script src="a2ui-client.js"></script>
 <script>
-// API base. Same-origin by default. On a static host (e.g. GitHub Pages) the
-// page author sets a backend via window.RESEARCH_API_BASE or the
-// <meta name="research-api-base"> tag. We deliberately do NOT read this from
-// the URL/query string, so a crafted link cannot redirect the panel's requests
-// to an attacker-controlled host (client-side request forgery).
-const API_BASE = (
+// ---- Configuration (set via the onboarding wizard, persisted locally) ----
+const CONFIG_KEY = "research.config.v1";
+const DEFAULTS = { apiBase: "", model: "", tenant: "default", renderMode: "stream", onboarded: false };
+
+function loadConfig() {
+  try { return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(CONFIG_KEY) || "{}")); }
+  catch (_) { return Object.assign({}, DEFAULTS); }
+}
+function saveConfig(c) { try { localStorage.setItem(CONFIG_KEY, JSON.stringify(c)); } catch (_) {} }
+
+// Validate an API base: empty (same-origin) or a well-formed http(s) URL.
+// Sourced from the page author (meta/window) or the user's own settings, never
+// from the URL/query string, so a crafted link cannot redirect requests.
+function safeApiBase(s) {
+  s = (s || "").trim().replace(/\/+$/, "");
+  if (!s) return "";
+  try { const u = new URL(s); return (u.protocol === "http:" || u.protocol === "https:") ? s : ""; }
+  catch (_) { return ""; }
+}
+
+let CONFIG = loadConfig();
+let API_BASE = safeApiBase(
   (typeof window !== "undefined" && window.RESEARCH_API_BASE) ||
   document.querySelector('meta[name="research-api-base"]')?.content ||
-  ""
-).trim().replace(/\/+$/, "");
+  CONFIG.apiBase || ""
+);
+
+// Per-request headers/body derived from the locked configuration.
+function reqHeaders() { return { "Content-Type": "application/json", "X-Tenant-ID": CONFIG.tenant || "default" }; }
+function reqBody(question) { const b = { question }; if (CONFIG.model) b.model = CONFIG.model; return JSON.stringify(b); }
 
 const EXAMPLES = [
   "Research Parkwalk Advisors as a lead for a UK aerospace deep-tech £3.2M seed. Fit + red flags.",
@@ -239,8 +312,7 @@ async function ask(text){
   let answer="";
   try{
     const r=await fetch(`${API_BASE}/research/stream`,{method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({question:text})});
+      headers:reqHeaders(), body:reqBody(text)});
     if(!r.ok||!r.body){ const e=await r.json().catch(()=>({detail:r.statusText}));
       statusEl.remove(); ansEl.innerHTML=`<div class="error">Error ${r.status}: ${esc(e.detail||"request failed")}</div>`; return; }
     for await (const {ce} of sseEvents(r)){
@@ -267,8 +339,7 @@ async function askA2UI(text){
   const client=new A2UIClient(ansEl);
   try{
     const r=await fetch(`${API_BASE}/research/a2ui`,{method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({question:text})});
+      headers:reqHeaders(), body:reqBody(text)});
     if(!r.ok||!r.body){ const e=await r.json().catch(()=>({detail:r.statusText}));
       statusEl.remove(); ansEl.innerHTML=`<div class="error">Error ${r.status}: ${esc(e.detail||"request failed")}</div>`; return; }
     let first=true;
@@ -314,7 +385,92 @@ async function refresh(){
     });
   }catch(e){ document.getElementById("tag-conn").textContent="offline"; }
 }
-refresh(); setInterval(refresh, 5000);
+// ---- Onboarding wizard (step-by-step config, defaults pre-loaded, lock on acknowledgement) ----
+let draft = null, stepIdx = 0;
+
+function wizField(key, label, help, type) {
+  const def = DEFAULTS[key] ? ("default: " + esc(String(DEFAULTS[key]))) : "default: (none)";
+  return `<label class="field"><span class="lab">${label}<span class="default-tag">${def}</span></span>`
+    + `<input type="${type}" id="wiz-input" value="${esc(draft[key] || "")}" /><span class="help">${help}</span></label>`;
+}
+function wizSelect(key, label, opts) {
+  const o = opts.map(([v, l]) => `<option value="${v}" ${draft[key] === v ? "selected" : ""}>${l}</option>`).join("");
+  return `<label class="field"><span class="lab">${label}</span><select id="wiz-input">${o}</select>`
+    + `<span class="help">How research results are displayed.</span></label>`;
+}
+function wizReview() {
+  const ab = safeApiBase(draft.apiBase) || "(this server)";
+  return `<div class="review">
+    <div><span class="k">Backend API</span><span>${esc(ab)}</span></div>
+    <div><span class="k">Model</span><span>${esc(draft.model || "server default")}</span></div>
+    <div><span class="k">Tenant</span><span>${esc(draft.tenant || "default")}</span></div>
+    <div><span class="k">Render mode</span><span>${draft.renderMode === "a2ui" ? "A2UI" : "Streaming"}</span></div>
+  </div>
+  <label class="ack"><input type="checkbox" id="wiz-ack" /> <span>I understand these settings and want to lock them in. You can Reconfigure anytime from the sidebar.</span></label>`;
+}
+const WIZ = [
+  { title: "Welcome", desc: "Quick setup, with sensible defaults pre-loaded. Review each step, then acknowledge to lock your configuration.",
+    body: () => `<p class="desc">This panel talks to the Research Agent backend. Defaults work out of the box; change them only if you need to.</p>` },
+  { title: "Backend API", field: "apiBase",
+    body: () => wizField("apiBase", "API base URL", "Blank uses this server. On a static host (e.g. GitHub Pages) enter your deployed API, like https://api.example.com", "text") },
+  { title: "Model", field: "model",
+    body: () => wizField("model", "Model override", "Blank = server default. e.g. anthropic:claude-sonnet-4-5 or ollama:llama3.1", "text") },
+  { title: "Tenant", field: "tenant",
+    body: () => wizField("tenant", "Tenant ID", "Isolates credentials and model per tenant. Default: default", "text") },
+  { title: "Rendering", field: "renderMode",
+    body: () => wizSelect("renderMode", "Result rendering", [["stream", "Streaming (markdown)"], ["a2ui", "A2UI (native surfaces)"]]) },
+  { title: "Review & lock", review: true, body: wizReview },
+];
+
+function renderWizard() {
+  document.getElementById("wiz-steps").innerHTML = WIZ.map((s, i) => `<span class="pip ${i <= stepIdx ? "done" : ""}"></span>`).join("");
+  const step = WIZ[stepIdx];
+  document.getElementById("wiz-body").innerHTML = `<h2>${esc(step.title)}</h2>` + (step.desc ? `<p class="desc">${esc(step.desc)}</p>` : "") + step.body();
+  document.getElementById("wiz-back").style.visibility = stepIdx === 0 ? "hidden" : "visible";
+  const next = document.getElementById("wiz-next");
+  next.textContent = stepIdx === WIZ.length - 1 ? "Lock & start" : "Next";
+  const input = document.getElementById("wiz-input");
+  if (input && step.field) {
+    const upd = () => { draft[step.field] = input.value; };
+    input.oninput = upd; input.onchange = upd;
+  }
+  if (step.review) {
+    next.disabled = true;
+    const ack = document.getElementById("wiz-ack");
+    if (ack) ack.onchange = () => { next.disabled = !ack.checked; };
+  } else { next.disabled = false; }
+}
+function showOnboarding() { draft = loadConfig(); stepIdx = 0; document.getElementById("onboarding").classList.remove("hidden"); renderWizard(); }
+function finishOnboarding() {
+  draft.apiBase = safeApiBase(draft.apiBase);
+  draft.tenant = (draft.tenant || "default").trim() || "default";
+  draft.onboarded = true;
+  CONFIG = draft; saveConfig(CONFIG); applyConfig();
+  document.getElementById("onboarding").classList.add("hidden");
+}
+document.getElementById("wiz-back").onclick = () => { if (stepIdx > 0) { stepIdx--; renderWizard(); } };
+document.getElementById("wiz-next").onclick = () => { if (stepIdx < WIZ.length - 1) { stepIdx++; renderWizard(); } else { finishOnboarding(); } };
+document.getElementById("reconfigure").onclick = showOnboarding;
+
+function applyConfig() {
+  API_BASE = safeApiBase(
+    (typeof window !== "undefined" && window.RESEARCH_API_BASE) ||
+    document.querySelector('meta[name="research-api-base"]')?.content ||
+    CONFIG.apiBase || "");
+  const radio = document.querySelector(`input[name="mode"][value="${CONFIG.renderMode}"]`);
+  if (radio) radio.checked = true;
+  const brand = document.querySelector(".brand");
+  if (brand && !brand.querySelector(".locked-badge")) {
+    const b = document.createElement("span"); b.className = "locked-badge"; b.textContent = "configured";
+    brand.appendChild(b);
+  }
+  refresh();
+}
+
+// Init: first-time visitors get the wizard; returning visitors get their config.
+if (!CONFIG.onboarded) { showOnboarding(); } else { applyConfig(); }
+refresh();
+setInterval(refresh, 5000);
 </script>
 </body>
 </html>

@@ -34,7 +34,7 @@ from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from research_agent.agent import default_model, get_tenant_agent
+from research_agent.agent import default_model, get_agent
 from research_agent.content import message_text
 from research_agent.tenancy import (
     DEFAULT_TENANT,
@@ -97,7 +97,7 @@ _TOOL_KEYS = {
 def _startup() -> None:
     global _agent, _ready
     # Warm the default tenant's agent so readiness reflects a real build.
-    _agent = get_tenant_agent(DEFAULT_TENANT)
+    _agent = get_agent(DEFAULT_TENANT)
     _ready = True
 
 
@@ -110,6 +110,12 @@ class ResearchRequest(BaseModel):
         examples=[
             "Research Parkwalk Advisors for a UK aerospace deep-tech seed round."
         ],
+    )
+    model: str | None = Field(
+        default=None,
+        max_length=100,
+        description="Optional model override, 'provider:model' format. Falls "
+        "back to the tenant / server default when omitted.",
     )
 
 
@@ -162,7 +168,7 @@ def research(
     if not question:
         raise HTTPException(status_code=422, detail="question must not be empty")
     config = load_tenant(_tenant_header(x_tenant_id))
-    agent = get_tenant_agent(config)
+    agent = get_agent(config, req.model)
     with tenant_scope(config):
         result = agent.invoke(
             {"messages": [{"role": "user", "content": question}]}
@@ -254,7 +260,7 @@ def research_a2ui(
     if not question:
         raise HTTPException(status_code=422, detail="question must not be empty")
     config = load_tenant(_tenant_header(x_tenant_id))
-    agent = get_tenant_agent(config)
+    agent = get_agent(config, req.model)
 
     from research_agent.a2ui import render_messages, sse_frames
 
@@ -294,7 +300,7 @@ def research_stream(
     if not question:
         raise HTTPException(status_code=422, detail="question must not be empty")
     config = load_tenant(_tenant_header(x_tenant_id))
-    agent = get_tenant_agent(config)
+    agent = get_agent(config, req.model)
     subject = str(uuid.uuid4())
     return StreamingResponse(
         _research_events(question, subject, agent, config),

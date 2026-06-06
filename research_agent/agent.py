@@ -108,23 +108,30 @@ def build_agent(model=None):
     )
 
 
-# Per-tenant agent cache. Each tenant gets its own compiled graph (so its model
-# choice sticks); credentials are still resolved per request via tenant_scope.
-_TENANT_AGENTS: dict[str, object] = {}
+# Agent cache keyed by (tenant, model). Each combination gets its own compiled
+# graph; credentials are still resolved per request via tenant_scope.
+_AGENTS: dict[tuple, object] = {}
 
 
-def get_tenant_agent(tenant):
-    """Return a cached agent for a tenant.
+def get_agent(tenant, model=None):
+    """Return a cached agent for a tenant, optionally with a model override.
 
-    `tenant` may be a tenant id (str) or a TenantConfig. The tenant's model
-    takes precedence over the env default.
+    `tenant` may be a tenant id (str) or a TenantConfig. Model precedence:
+    explicit `model` > the tenant's configured model > the resolved default.
     """
     config = tenant if isinstance(tenant, TenantConfig) else load_tenant(tenant)
-    cached = _TENANT_AGENTS.get(config.tenant_id)
+    chosen = model or config.model
+    key = (config.tenant_id, chosen or "")
+    cached = _AGENTS.get(key)
     if cached is None:
-        cached = build_agent(model=config.model)
-        _TENANT_AGENTS[config.tenant_id] = cached
+        cached = build_agent(model=chosen)
+        _AGENTS[key] = cached
     return cached
 
 
-__all__ = ["build_agent", "get_tenant_agent"]
+def get_tenant_agent(tenant):
+    """Return a cached agent for a tenant (no model override)."""
+    return get_agent(tenant)
+
+
+__all__ = ["build_agent", "get_agent", "get_tenant_agent", "default_model"]
