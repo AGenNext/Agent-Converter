@@ -1,0 +1,11 @@
+# Flux source: track this repository's main branch.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: agent-converter
+  namespace: flux-system
+spec:
+  interval: 5m
+  url: https://github.com/AGenNext/Agent-Converter
+  ref:
+    branch: main

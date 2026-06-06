@@ -235,7 +235,9 @@ const stream = document.getElementById("stream");
 const qEl = document.getElementById("q");
 const sendEl = document.getElementById("send");
 
-function esc(s){ return s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+// Escape for both text and attribute contexts (includes quotes), so values
+// interpolated into value="..." cannot break out of the attribute (XSS).
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 // Minimal, dependency-free markdown renderer (headings, bold, code, lists,
 // and confidence-tag chips) so the panel works with no external CDN.

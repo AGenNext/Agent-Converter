@@ -89,6 +89,14 @@ operator, OpenTofu) stay consistent. See `deploy/tofu/README.md`. On a k3s
 node, point `kubeconfig_path` at `/etc/rancher/k3s/k3s.yaml` and import the
 image into containerd first.
 
+## 6. GitOps (Flux)
+
+Reconcile the agent from Git with [Flux](https://fluxcd.io): a `GitRepository`
+tracks `main` and a `HelmRelease` installs the chart with the signed GHCR
+image. Bump a value, push to `main`, and the cluster updates itself. Provide
+secrets via SOPS / External Secrets (never commit keys). See
+`deploy/flux/README.md`.
+
 ## Day-2 operations
 
 ### Cost — OpenCost
