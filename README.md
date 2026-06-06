@@ -13,6 +13,7 @@ when it is genuinely uncertain.
 
 | Doc | What's in it |
 | --- | --- |
+| [docs/concepts.md](docs/concepts.md) | Concepts: channels, interfaces, models, I/O, theory |
 | [docs/architecture.md](docs/architecture.md) | How the deep agent is structured, with an architectural diagram |
 | [docs/usage.md](docs/usage.md) | How-to-use guide: install, configure, run, read the output |
 | [docs/configuration.md](docs/configuration.md) | Env vars, model selection, tool keys |
