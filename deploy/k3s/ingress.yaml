@@ -1,0 +1,23 @@
+# k3s ships Traefik as the default ingress controller. This exposes the agent
+# at the node IP. Replace the host or use the path as-is for IP access.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: research-deep-agent
+  labels:
+    app.kubernetes.io/name: research-deep-agent
+    app.kubernetes.io/part-of: research-platform
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  rules:
+    # Reachable at http://<node-ip>/ . Set a real host once DNS exists.
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: research-deep-agent
+                port:
+                  number: 80

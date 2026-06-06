@@ -1,0 +1,62 @@
+name: Deploy to GitHub Pages
+
+# Publishes the static showcase (landing page, control panel, UI mockup,
+# Storybook) to GitHub Pages. Enable Pages first:
+# Settings > Pages > Build and deployment > Source: GitHub Actions.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read   # the build job needs no write scopes
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build Storybook
+        run: |
+          cd ui
+          npm install
+          npm run build-storybook
+
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp -r site/* _site/
+          mkdir -p _site/panel
+          cp static/index.html static/a2ui-client.js _site/panel/
+          cp docs/ui-mockup.html _site/ui-mockup.html
+          cp -r ui/storybook-static _site/storybook
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

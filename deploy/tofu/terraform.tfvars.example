@@ -1,0 +1,17 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored.
+kubeconfig_path = "~/.kube/config" # or /etc/rancher/k3s/k3s.yaml on a k3s node
+namespace       = "research-agent"
+image_repository = "research-deep-agent"
+image_tag        = "latest"
+replica_count    = 2
+model            = "anthropic:claude-sonnet-4-5"
+
+enable_ingress = true
+ingress_host   = "" # set a hostname once DNS exists; empty = node IP
+
+api_keys = {
+  ANTHROPIC_API_KEY = "sk-ant-..."
+  TAVILY_API_KEY    = "tvly-..."
+  # PERPLEXITY_API_KEY = "pplx-..."
+  # APOLLO_API_KEY     = "..."
+}

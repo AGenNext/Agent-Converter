@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: research-agent-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: research-agent-operator
+  namespace: research-agent-system
+  labels:
+    app.kubernetes.io/name: research-agent-operator
+    app.kubernetes.io/part-of: research-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: research-agent-operator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: research-agent-operator
+    spec:
+      serviceAccountName: research-agent-operator
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: manager
+          # Build and push with: make -C deploy/operator docker-build docker-push
+          image: research-agent-operator:latest
+          args:
+            - "--leader-elect"
+            - "--health-probe-bind-address=:8081"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"

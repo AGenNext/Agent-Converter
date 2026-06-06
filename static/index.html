@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<!-- API base for a static host (e.g. GitHub Pages). Set by the page author at
+     deploy time; empty means same-origin. Not read from the URL, so it cannot
+     be redirected by a crafted link. -->
+<meta name="research-api-base" content="" />
+<title>Research Deep Agent — Control Panel</title>
+<style>
+  :root {
+    --bg:#0f1115; --panel:#171a21; --panel-2:#1e222b; --line:#2a2f3a;
+    --text:#e6e9ef; --muted:#9aa3b2; --accent:#6ea8fe;
+    --high:#2ec28a; --medium:#e8b341; --low:#e8853a; --unver:#8b93a3;
+    --chip-bg:#232733;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  .app { display:grid; grid-template-columns:280px 1fr; height:100vh; }
+
+  .sidebar { background:var(--panel); border-right:1px solid var(--line); padding:18px 16px; overflow-y:auto; }
+  .brand { display:flex; align-items:center; gap:10px; font-weight:700; font-size:16px; margin-bottom:6px; }
+  .brand .dot { width:10px; height:10px; border-radius:50%; background:var(--accent); box-shadow:0 0 12px var(--accent); }
+  .sub { color:var(--muted); font-size:12px; margin-bottom:16px; }
+  .nav-title { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.08em; margin:16px 4px 8px; }
+  .status { font-size:12.5px; }
+  .status .row { display:flex; align-items:center; gap:8px; padding:4px 4px; }
+  .led { width:8px; height:8px; border-radius:50%; background:var(--unver); flex:none; }
+  .led.on { background:var(--high); box-shadow:0 0 8px var(--high); }
+  .led.off { background:#3a3f4b; }
+  .examples button { display:block; width:100%; text-align:left; background:var(--panel-2);
+    color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px 10px;
+    font-size:12.5px; margin-bottom:8px; cursor:pointer; }
+  .examples button:hover { border-color:var(--accent); }
+
+  .main { display:flex; flex-direction:column; min-width:0; }
+  .topbar { padding:14px 22px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; }
+  .topbar h1 { font-size:15px; margin:0; font-weight:600; }
+  .topbar .tag { font-size:11px; color:var(--muted); border:1px solid var(--line); padding:2px 8px; border-radius:999px; }
+  .stream { flex:1; overflow-y:auto; padding:24px; }
+  .wrap { max-width:880px; margin:0 auto; }
+
+  .user { display:flex; justify-content:flex-end; margin-bottom:18px; }
+  .user .bubble { background:var(--accent); color:#08111f; padding:10px 14px;
+    border-radius:14px 14px 4px 14px; font-weight:500; max-width:75%; }
+
+  .agent { background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:18px 20px; margin-bottom:22px; }
+  .agent h1,.agent h2,.agent h3 { color:var(--text); }
+  .agent h2 { font-size:13px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted);
+    border-top:1px solid var(--line); padding-top:14px; margin-top:18px; }
+  .agent h2:first-child { border-top:0; padding-top:0; margin-top:0; }
+  .agent code { background:var(--chip-bg); padding:1px 5px; border-radius:5px; font-size:13px; }
+  .agent ul { padding-left:20px; }
+  .chip { font-size:10.5px; font-weight:700; letter-spacing:.04em; padding:1px 7px; border-radius:999px; }
+  .chip.high { background:rgba(46,194,138,.15); color:var(--high); border:1px solid rgba(46,194,138,.4); }
+  .chip.medium { background:rgba(232,179,65,.15); color:var(--medium); border:1px solid rgba(232,179,65,.4); }
+  .chip.low { background:rgba(232,133,58,.15); color:var(--low); border:1px solid rgba(232,133,58,.4); }
+  .chip.unver { background:rgba(139,147,163,.15); color:var(--unver); border:1px solid rgba(139,147,163,.4); }
+
+  .thinking { color:var(--muted); font-size:14px; display:flex; align-items:center; gap:10px; }
+  .spinner { width:16px; height:16px; border:2px solid var(--line); border-top-color:var(--accent);
+    border-radius:50%; animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .error { color:#ff8a8a; }
+
+  .composer { border-top:1px solid var(--line); padding:14px 22px; }
+  .composer .row { max-width:880px; margin:0 auto; display:flex; gap:10px; align-items:flex-end; }
+  .composer textarea { flex:1; background:var(--panel); border:1px solid var(--line); color:var(--text);
+    border-radius:10px; padding:11px 14px; font-size:14px; resize:vertical; min-height:48px; font-family:inherit; }
+  .composer .send { background:var(--accent); color:#08111f; border:0; border-radius:10px;
+    padding:12px 18px; font-weight:700; cursor:pointer; }
+  .composer .send:disabled { opacity:.5; cursor:not-allowed; }
+  .hint { max-width:880px; margin:8px auto 0; color:var(--muted); font-size:12px; display:flex; justify-content:space-between; gap:16px; }
+  .hint .mode { white-space:nowrap; }
+  .hint .mode label { margin-left:8px; cursor:pointer; }
+
+  /* A2UI surface rendering */
+  .a2-surface { display:flex; flex-direction:column; }
+  .a2-heading { font-size:13px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted);
+    border-top:1px solid var(--line); padding-top:14px; margin:18px 0 8px; }
+  .a2-surface > .a2-heading:first-child { border-top:0; padding-top:0; margin-top:0; }
+  .a2-text { margin:4px 0; display:flex; align-items:flex-start; flex-wrap:wrap; }
+  .a2-list { padding-left:20px; margin:6px 0; }
+  .a2-list li { margin:4px 0; }
+  .a2-divider { border:0; border-top:1px solid var(--line); margin:12px 0; }
+  .a2-row { display:flex; gap:12px; }
+  .a2-column { display:flex; flex-direction:column; gap:6px; }
+  .a2-card { background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:12px; margin:8px 0; }
+  .a2-button { background:var(--accent); color:#08111f; border:0; border-radius:8px; padding:6px 12px; font-weight:600; cursor:pointer; }
+
+  /* Onboarding wizard */
+  .overlay { position:fixed; inset:0; background:rgba(6,8,12,.78); display:flex;
+    align-items:center; justify-content:center; z-index:50; }
+  .overlay.hidden { display:none; }
+  .wizard { width:min(560px,92vw); background:var(--panel); border:1px solid var(--line);
+    border-radius:16px; padding:26px 28px; box-shadow:0 20px 60px rgba(0,0,0,.5); }
+  .wizard .steps { display:flex; gap:6px; margin-bottom:18px; }
+  .wizard .steps .pip { height:4px; flex:1; border-radius:3px; background:var(--line); }
+  .wizard .steps .pip.done { background:var(--accent); }
+  .wizard h2 { margin:0 0 6px; font-size:20px; }
+  .wizard p.desc { color:var(--muted); margin:0 0 18px; font-size:14px; }
+  .wizard label.field { display:block; margin:14px 0; }
+  .wizard label.field .lab { display:block; font-size:13px; margin-bottom:6px; }
+  .wizard label.field .help { color:var(--muted); font-size:12px; margin-top:5px; }
+  .wizard input[type=text], .wizard select { width:100%; background:var(--panel-2);
+    border:1px solid var(--line); color:var(--text); border-radius:9px; padding:10px 12px; font-size:14px; }
+  .wizard .default-tag { font-size:11px; color:var(--accent); margin-left:6px; }
+  .wizard .review { background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:12px 14px; font-size:13.5px; }
+  .wizard .review div { display:flex; justify-content:space-between; padding:4px 0; }
+  .wizard .review .k { color:var(--muted); }
+  .wizard .ack { display:flex; gap:9px; align-items:flex-start; margin-top:16px; font-size:13.5px; }
+  .wizard .ack input { margin-top:3px; }
+  .wizard .nav { display:flex; justify-content:space-between; gap:10px; margin-top:22px; }
+  .wizard .nav button { border-radius:9px; padding:10px 16px; font-weight:600; cursor:pointer; font-size:14px; }
+  .wizard .nav .back { background:transparent; color:var(--muted); border:1px solid var(--line); }
+  .wizard .nav .next { background:var(--accent); color:#08111f; border:0; }
+  .wizard .nav .next:disabled { opacity:.45; cursor:not-allowed; }
+  .reconfig { margin-top:10px; }
+  .reconfig button { width:100%; background:transparent; color:var(--muted); border:1px solid var(--line);
+    border-radius:8px; padding:7px 10px; font-size:12.5px; cursor:pointer; }
+  .reconfig button:hover { border-color:var(--accent); color:var(--text); }
+  .locked-badge { font-size:10px; color:var(--high); border:1px solid rgba(46,194,138,.4);
+    background:rgba(46,194,138,.12); padding:1px 7px; border-radius:999px; margin-left:8px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><span class="dot"></span> Research Agent</div>
+    <div class="sub">Honest, well-sourced, confidence-tagged research.</div>
+
+    <div class="nav-title">Service status</div>
+    <div class="status" id="status">
+      <div class="row"><span class="led" id="led-ready"></span> <span id="txt-ready">checking…</span></div>
+      <div class="row"><span class="led off"></span> <span id="txt-model">model</span></div>
+    </div>
+
+    <div class="nav-title">Connected tools</div>
+    <div class="status" id="tools"></div>
+
+    <div class="nav-title">Try an example</div>
+    <div class="examples" id="examples"></div>
+
+    <div class="reconfig"><button id="reconfigure">⚙ Reconfigure</button></div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <h1>Control panel</h1>
+      <span class="tag" id="tag-conn">connecting…</span>
+    </div>
+
+    <div class="stream"><div class="wrap" id="stream"></div></div>
+
+    <div class="composer">
+      <div class="row">
+        <textarea id="q" placeholder="Ask a research question. Name the subject and the decision it informs…"></textarea>
+        <button class="send" id="send">Research →</button>
+      </div>
+      <div class="hint">
+        <span>Tip: include the subject, the decision, your context and scope. The agent will ask if a question is too vague.</span>
+        <span class="mode">Render:
+          <label><input type="radio" name="mode" value="stream" checked /> Streaming</label>
+          <label><input type="radio" name="mode" value="a2ui" /> A2UI</label>
+        </span>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Step-by-step onboarding wizard. Built with the Research Agent UI kit
+     (../ui, Storybook); pairs with assistant-ui for a full React frontend. -->
+<div class="overlay hidden" id="onboarding">
+  <div class="wizard">
+    <div class="steps" id="wiz-steps"></div>
+    <div id="wiz-body"></div>
+    <div class="nav">
+      <button class="back" id="wiz-back">Back</button>
+      <button class="next" id="wiz-next">Next</button>
+    </div>
+    <div style="text-align:center;margin-top:14px;color:var(--muted);font-size:11px">
+      Research Agent UI kit · pairs with the
+      <a href="https://www.assistant-ui.com" style="color:var(--accent)">assistant-ui</a> chat kit
+    </div>
+  </div>
+</div>
+
+<script src="a2ui-client.js"></script>
+<script>
+// ---- Configuration (set via the onboarding wizard, persisted locally) ----
+const CONFIG_KEY = "research.config.v1";
+const DEFAULTS = { apiBase: "", model: "", tenant: "default", renderMode: "stream", onboarded: false };
+
+function loadConfig() {
+  try { return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(CONFIG_KEY) || "{}")); }
+  catch (_) { return Object.assign({}, DEFAULTS); }
+}
+function saveConfig(c) { try { localStorage.setItem(CONFIG_KEY, JSON.stringify(c)); } catch (_) {} }
+
+// Validate an API base: empty (same-origin) or a well-formed http(s) URL.
+// Sourced from the page author (meta/window) or the user's own settings, never
+// from the URL/query string, so a crafted link cannot redirect requests.
+function safeApiBase(s) {
+  s = (s || "").trim().replace(/\/+$/, "");
+  if (!s) return "";
+  try { const u = new URL(s); return (u.protocol === "http:" || u.protocol === "https:") ? s : ""; }
+  catch (_) { return ""; }
+}
+
+let CONFIG = loadConfig();
+let API_BASE = safeApiBase(
+  (typeof window !== "undefined" && window.RESEARCH_API_BASE) ||
+  document.querySelector('meta[name="research-api-base"]')?.content ||
+  CONFIG.apiBase || ""
+);
+
+// Per-request headers/body derived from the locked configuration.
+function reqHeaders() { return { "Content-Type": "application/json", "X-Tenant-ID": CONFIG.tenant || "default" }; }
+function reqBody(question) { const b = { question }; if (CONFIG.model) b.model = CONFIG.model; return JSON.stringify(b); }
+
+const EXAMPLES = [
+  "Research Parkwalk Advisors as a lead for a UK aerospace deep-tech £3.2M seed. Fit + red flags.",
+  "What is the global market size for digital twins in aerospace?",
+  "Profile Anthropic: what they do, funding, key people, competitors.",
+];
+const TOOL_LABELS = {
+  tavily:"Tavily", perplexity:"Perplexity", apollo:"Apollo",
+  pitchbook:"PitchBook", factset:"FactSet", harmonic:"Harmonic", clay:"Clay",
+};
+
+const stream = document.getElementById("stream");
+const qEl = document.getElementById("q");
+const sendEl = document.getElementById("send");
+
+// Escape for both text and attribute contexts (includes quotes), so values
+// interpolated into value="..." cannot break out of the attribute (XSS).
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// Minimal, dependency-free markdown renderer (headings, bold, code, lists,
+// and confidence-tag chips) so the panel works with no external CDN.
+function renderMarkdown(md){
+  const lines = md.split("\n");
+  let html = "", inList = false;
+  const inline = t => esc(t)
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\b(HIGH|MEDIUM|LOW|UNVERIFIED)\b/g,
+      (m)=>`<span class="chip ${m==='UNVERIFIED'?'unver':m.toLowerCase()}">${m}</span>`);
+  for (let raw of lines){
+    const line = raw.replace(/\s+$/,"");
+    const li = line.match(/^\s*[-*]\s+(.*)/);
+    if (li){ if(!inList){ html+="<ul>"; inList=true; } html+="<li>"+inline(li[1])+"</li>"; continue; }
+    if (inList){ html+="</ul>"; inList=false; }
+    const h = line.match(/^(#{1,4})\s+(.*)/);
+    if (h){ const n=h[1].length; html+=`<h${n}>`+inline(h[2])+`</h${n}>`; continue; }
+    if (line.trim()===""){ html+=""; continue; }
+    html += "<p>"+inline(line)+"</p>";
+  }
+  if (inList) html+="</ul>";
+  return html;
+}
+
+function addUser(text){
+  const d=document.createElement("div"); d.className="user";
+  d.innerHTML=`<div class="bubble">${esc(text)}</div>`;
+  stream.appendChild(d); d.scrollIntoView({behavior:"smooth"});
+}
+function addAgentNode(){
+  const d=document.createElement("div"); d.className="agent";
+  d.innerHTML=`<div class="thinking" data-role="status"><span class="spinner"></span> <span data-role="step">Starting…</span></div><div data-role="answer"></div>`;
+  stream.appendChild(d); d.scrollIntoView({behavior:"smooth"}); return d;
+}
+
+// Friendly labels for the agent's internal step nodes.
+function stepLabel(step){
+  const s=String(step).toLowerCase();
+  if(s.includes("todo")||s.includes("plan")) return "Planning the research…";
+  if(s.includes("tool")) return "Gathering from sources…";
+  if(s.includes("task")||s.includes("sub")) return "Delegating to a specialist pack…";
+  if(s.includes("model")||s==="agent") return "Reasoning and synthesising…";
+  return "Working: "+esc(step);
+}
+
+// Parse a Server-Sent Events stream and yield {event, data} CloudEvents.
+async function* sseEvents(resp){
+  const reader=resp.body.getReader(); const dec=new TextDecoder(); let buf="";
+  while(true){
+    const {value,done}=await reader.read(); if(done) break;
+    buf+=dec.decode(value,{stream:true});
+    let i;
+    while((i=buf.indexOf("\n\n"))>=0){
+      const frame=buf.slice(0,i); buf=buf.slice(i+2);
+      let ev=null, data="";
+      for(const line of frame.split("\n")){
+        if(line.startsWith("event:")) ev=line.slice(6).trim();
+        else if(line.startsWith("data:")) data+=line.slice(5).trim();
+      }
+      if(data){ try{ yield {event:ev, ce:JSON.parse(data)}; }catch(_){} }
+    }
+  }
+}
+
+async function ask(text){
+  if(!text.trim()) return;
+  qEl.value=""; sendEl.disabled=true;
+  addUser(text);
+  const node=addAgentNode();
+  const statusEl=node.querySelector('[data-role="status"]');
+  const stepEl=node.querySelector('[data-role="step"]');
+  const ansEl=node.querySelector('[data-role="answer"]');
+  let answer="";
+  try{
+    const r=await fetch(`${API_BASE}/research/stream`,{method:"POST",
+      headers:reqHeaders(), body:reqBody(text)});
+    if(!r.ok||!r.body){ const e=await r.json().catch(()=>({detail:r.statusText}));
+      statusEl.remove(); ansEl.innerHTML=`<div class="error">Error ${r.status}: ${esc(e.detail||"request failed")}</div>`; return; }
+    for await (const {ce} of sseEvents(r)){
+      const t=ce.type||"";
+      if(t.endsWith(".status")){ stepEl.textContent=""; stepEl.innerHTML=stepLabel(ce.data.step); }
+      else if(t.endsWith(".token")){ answer+=ce.data.text||""; ansEl.innerHTML=renderMarkdown(answer); node.scrollIntoView({block:"end"}); }
+      else if(t.endsWith(".completed")){ if(ce.data.answer) { answer=ce.data.answer; ansEl.innerHTML=renderMarkdown(answer); } statusEl.remove(); }
+      else if(t.endsWith(".error")){ statusEl.remove(); ansEl.innerHTML+=`<div class="error">${esc(ce.data.message||"error")}</div>`; }
+    }
+  }catch(err){ statusEl.remove(); ansEl.innerHTML=`<div class="error">Network error: ${esc(String(err))}</div>`; }
+  finally{ sendEl.disabled=false; node.scrollIntoView({behavior:"smooth"}); }
+}
+
+// A2UI path: render the result natively from A2UI surface messages.
+async function askA2UI(text){
+  if(!text.trim()) return;
+  qEl.value=""; sendEl.disabled=true;
+  addUser(text);
+  const node=addAgentNode();
+  const statusEl=node.querySelector('[data-role="status"]');
+  const stepEl=node.querySelector('[data-role="step"]');
+  const ansEl=node.querySelector('[data-role="answer"]');
+  stepEl.textContent="Researching, then rendering an A2UI surface…";
+  const client=new A2UIClient(ansEl);
+  try{
+    const r=await fetch(`${API_BASE}/research/a2ui`,{method:"POST",
+      headers:reqHeaders(), body:reqBody(text)});
+    if(!r.ok||!r.body){ const e=await r.json().catch(()=>({detail:r.statusText}));
+      statusEl.remove(); ansEl.innerHTML=`<div class="error">Error ${r.status}: ${esc(e.detail||"request failed")}</div>`; return; }
+    let first=true;
+    for await (const {ce} of sseEvents(r)){
+      // Each SSE frame is a JSON-RPC A2UI message.
+      if(first){ statusEl.remove(); first=false; }
+      client.handle(ce);
+      node.scrollIntoView({block:"end"});
+    }
+    if(first) statusEl.remove();
+  }catch(err){ statusEl.remove(); ansEl.innerHTML=`<div class="error">Network error: ${esc(String(err))}</div>`; }
+  finally{ sendEl.disabled=false; node.scrollIntoView({behavior:"smooth"}); }
+}
+
+function currentMode(){
+  const sel=document.querySelector('input[name="mode"]:checked');
+  return sel ? sel.value : "stream";
+}
+function dispatch(text){ return currentMode()==="a2ui" ? askA2UI(text) : ask(text); }
+
+sendEl.onclick=()=>dispatch(qEl.value);
+qEl.addEventListener("keydown",e=>{ if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)) dispatch(qEl.value); });
+
+// Examples
+const exWrap=document.getElementById("examples");
+EXAMPLES.forEach(x=>{ const b=document.createElement("button"); b.textContent=x;
+  b.onclick=()=>{ qEl.value=x; qEl.focus(); }; exWrap.appendChild(b); });
+
+// Poll status / tool config
+async function refresh(){
+  try{
+    const r=await fetch(`${API_BASE}/api/info`); const info=await r.json();
+    document.getElementById("tag-conn").textContent = info.ready ? "ready" : "starting…";
+    const led=document.getElementById("led-ready");
+    led.className = "led " + (info.ready ? "on" : "off");
+    document.getElementById("txt-ready").textContent = info.ready ? "Agent ready" : "Agent starting";
+    document.getElementById("txt-model").textContent = info.model;
+    const tw=document.getElementById("tools"); tw.innerHTML="";
+    Object.entries(info.tools).forEach(([k,on])=>{
+      const row=document.createElement("div"); row.className="row";
+      row.innerHTML=`<span class="led ${on?'on':'off'}"></span> ${TOOL_LABELS[k]||k} <span style="margin-left:auto;color:var(--muted)">${on?'live':'stub'}</span>`;
+      tw.appendChild(row);
+    });
+  }catch(e){ document.getElementById("tag-conn").textContent="offline"; }
+}
+// ---- Onboarding wizard (step-by-step config, defaults pre-loaded, lock on acknowledgement) ----
+let draft = null, stepIdx = 0;
+
+function wizField(key, label, help, type) {
+  const def = DEFAULTS[key] ? ("default: " + esc(String(DEFAULTS[key]))) : "default: (none)";
+  return `<label class="field"><span class="lab">${label}<span class="default-tag">${def}</span></span>`
+    + `<input type="${type}" id="wiz-input" value="${esc(draft[key] || "")}" /><span class="help">${help}</span></label>`;
+}
+function wizSelect(key, label, opts) {
+  const o = opts.map(([v, l]) => `<option value="${v}" ${draft[key] === v ? "selected" : ""}>${l}</option>`).join("");
+  return `<label class="field"><span class="lab">${label}</span><select id="wiz-input">${o}</select>`
+    + `<span class="help">How research results are displayed.</span></label>`;
+}
+function wizReview() {
+  const ab = safeApiBase(draft.apiBase) || "(this server)";
+  return `<div class="review">
+    <div><span class="k">Backend API</span><span>${esc(ab)}</span></div>
+    <div><span class="k">Model</span><span>${esc(draft.model || "server default")}</span></div>
+    <div><span class="k">Tenant</span><span>${esc(draft.tenant || "default")}</span></div>
+    <div><span class="k">Render mode</span><span>${draft.renderMode === "a2ui" ? "A2UI" : "Streaming"}</span></div>
+  </div>
+  <label class="ack"><input type="checkbox" id="wiz-ack" /> <span>I understand these settings and want to lock them in. You can Reconfigure anytime from the sidebar.</span></label>`;
+}
+const WIZ = [
+  { title: "Welcome", desc: "Quick setup, with sensible defaults pre-loaded. Review each step, then acknowledge to lock your configuration.",
+    body: () => `<p class="desc">This panel talks to the Research Agent backend. Defaults work out of the box; change them only if you need to.</p>` },
+  { title: "Backend API", field: "apiBase",
+    body: () => wizField("apiBase", "API base URL", "Blank uses this server. On a static host (e.g. GitHub Pages) enter your deployed API, like https://api.example.com", "text") },
+  { title: "Model", field: "model",
+    body: () => wizField("model", "Model override", "Blank = server default. e.g. anthropic:claude-sonnet-4-5 or ollama:llama3.1", "text") },
+  { title: "Tenant", field: "tenant",
+    body: () => wizField("tenant", "Tenant ID", "Isolates credentials and model per tenant. Default: default", "text") },
+  { title: "Rendering", field: "renderMode",
+    body: () => wizSelect("renderMode", "Result rendering", [["stream", "Streaming (markdown)"], ["a2ui", "A2UI (native surfaces)"]]) },
+  { title: "Review & lock", review: true, body: wizReview },
+];
+
+function renderWizard() {
+  document.getElementById("wiz-steps").innerHTML = WIZ.map((s, i) => `<span class="pip ${i <= stepIdx ? "done" : ""}"></span>`).join("");
+  const step = WIZ[stepIdx];
+  document.getElementById("wiz-body").innerHTML = `<h2>${esc(step.title)}</h2>` + (step.desc ? `<p class="desc">${esc(step.desc)}</p>` : "") + step.body();
+  document.getElementById("wiz-back").style.visibility = stepIdx === 0 ? "hidden" : "visible";
+  const next = document.getElementById("wiz-next");
+  next.textContent = stepIdx === WIZ.length - 1 ? "Lock & start" : "Next";
+  const input = document.getElementById("wiz-input");
+  if (input && step.field) {
+    const upd = () => { draft[step.field] = input.value; };
+    input.oninput = upd; input.onchange = upd;
+  }
+  if (step.review) {
+    next.disabled = true;
+    const ack = document.getElementById("wiz-ack");
+    if (ack) ack.onchange = () => { next.disabled = !ack.checked; };
+  } else { next.disabled = false; }
+}
+function showOnboarding() { draft = loadConfig(); stepIdx = 0; document.getElementById("onboarding").classList.remove("hidden"); renderWizard(); }
+function finishOnboarding() {
+  draft.apiBase = safeApiBase(draft.apiBase);
+  draft.tenant = (draft.tenant || "default").trim() || "default";
+  draft.onboarded = true;
+  CONFIG = draft; saveConfig(CONFIG); applyConfig();
+  document.getElementById("onboarding").classList.add("hidden");
+}
+document.getElementById("wiz-back").onclick = () => { if (stepIdx > 0) { stepIdx--; renderWizard(); } };
+document.getElementById("wiz-next").onclick = () => { if (stepIdx < WIZ.length - 1) { stepIdx++; renderWizard(); } else { finishOnboarding(); } };
+document.getElementById("reconfigure").onclick = showOnboarding;
+
+function applyConfig() {
+  API_BASE = safeApiBase(
+    (typeof window !== "undefined" && window.RESEARCH_API_BASE) ||
+    document.querySelector('meta[name="research-api-base"]')?.content ||
+    CONFIG.apiBase || "");
+  const radio = document.querySelector(`input[name="mode"][value="${CONFIG.renderMode}"]`);
+  if (radio) radio.checked = true;
+  const brand = document.querySelector(".brand");
+  if (brand && !brand.querySelector(".locked-badge")) {
+    const b = document.createElement("span"); b.className = "locked-badge"; b.textContent = "configured";
+    brand.appendChild(b);
+  }
+  refresh();
+}
+
+// Init: first-time visitors get the wizard; returning visitors get their config.
+if (!CONFIG.onboarded) { showOnboarding(); } else { applyConfig(); }
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>

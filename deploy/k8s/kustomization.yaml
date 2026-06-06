@@ -1,0 +1,18 @@
+# Deploy the agent (without the operator) in one command:
+#   cp secret.example.yaml secret.yaml   # fill in keys
+#   kubectl apply -k deploy/k8s
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+commonLabels:
+  app.kubernetes.io/part-of: research-platform
+
+resources:
+  - deployment.yaml
+  - service.yaml
+  # Provide your own secret.yaml (copied from secret.example.yaml).
+  - secret.yaml
+
+images:
+  - name: research-deep-agent
+    newTag: latest

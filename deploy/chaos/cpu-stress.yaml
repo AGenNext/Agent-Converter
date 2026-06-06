@@ -1,0 +1,19 @@
+# Chaos Mesh: load the agent's CPU to validate resource limits, HPA scaling
+# and that liveness probes do not flap under pressure.
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: research-agent-cpu-stress
+  namespace: default
+spec:
+  mode: one
+  selector:
+    namespaces:
+      - default
+    labelSelectors:
+      app.kubernetes.io/name: research-deep-agent
+  stressors:
+    cpu:
+      workers: 1
+      load: 80
+  duration: "2m"

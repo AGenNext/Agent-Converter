@@ -1,0 +1,15 @@
+{
+  "acme": {
+    "model": "anthropic:claude-sonnet-4-5",
+    "keys": {
+      "ANTHROPIC_API_KEY": "sk-ant-acme...",
+      "TAVILY_API_KEY": "tvly-acme...",
+      "PERPLEXITY_API_KEY": "pplx-acme..."
+    }
+  },
+  "beta": {
+    "keys": {
+      "ANTHROPIC_API_KEY": "sk-ant-beta..."
+    }
+  }
+}

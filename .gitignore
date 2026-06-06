@@ -1,0 +1,20 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+findings_*.md
+
+# Kubernetes / OpenTofu secrets and state
+deploy/k8s/secret.yaml
+**/terraform.tfvars
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Node / Storybook
+node_modules/
+storybook-static/

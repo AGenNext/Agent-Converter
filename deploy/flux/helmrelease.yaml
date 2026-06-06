@@ -1,0 +1,36 @@
+# Flux GitOps: continuously reconcile the agent from the in-repo Helm chart,
+# using the signed image published to GHCR. Edit values here and Flux applies
+# the change on its next sync.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: research-agent
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: research-agent
+  namespace: research-agent
+spec:
+  interval: 10m
+  releaseName: research-agent
+  chart:
+    spec:
+      chart: deploy/operator/helm-charts/research-agent
+      sourceRef:
+        kind: GitRepository
+        name: agent-converter
+        namespace: flux-system
+  values:
+    replicaCount: 2
+    image:
+      repository: ghcr.io/agennext/agent-converter
+      tag: v1.0.0
+    model: "anthropic:claude-sonnet-4-5"
+    # The Secret must exist in the namespace (provide it via SOPS or
+    # external-secrets — never commit plaintext keys). See README.
+    secretName: research-agent-secrets
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 6

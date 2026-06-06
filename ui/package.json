@@ -1,0 +1,18 @@
+{
+  "name": "research-agent-ui",
+  "version": "1.0.0",
+  "description": "Chat UI components for the Research Deep Agent, explorable in Storybook",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
+  },
+  "devDependencies": {
+    "@storybook/addon-essentials": "^8.6.0",
+    "@storybook/html": "^8.6.0",
+    "@storybook/html-vite": "^8.6.0",
+    "storybook": "^8.6.0",
+    "vite": "^5.4.0"
+  }
+}

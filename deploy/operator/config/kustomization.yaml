@@ -1,0 +1,12 @@
+# Install the operator (CRD + RBAC + manager) in one command:
+#   kubectl apply -k deploy/operator/config
+# Then create a ResearchAgent:
+#   kubectl apply -f deploy/operator/config/samples/research_v1alpha1_researchagent.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - crd/bases/research.agennext.ai_researchagents.yaml
+  - rbac/service_account.yaml
+  - rbac/role.yaml
+  - manager/manager.yaml

@@ -1,0 +1,21 @@
+# Chaos Mesh: inject latency on the agent's egress (it depends on external
+# APIs: the model, Tavily, Perplexity). Confirms timeouts and graceful
+# degradation hold up under a slow network.
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: research-agent-network-delay
+  namespace: default
+spec:
+  action: delay
+  mode: all
+  selector:
+    namespaces:
+      - default
+    labelSelectors:
+      app.kubernetes.io/name: research-deep-agent
+  delay:
+    latency: "300ms"
+    jitter: "100ms"
+    correlation: "50"
+  duration: "2m"

@@ -1,0 +1,6 @@
+# Maps the ResearchAgent custom resource to the Helm chart the operator
+# reconciles. Used by the operator-sdk Helm operator base image.
+- group: research.agennext.ai
+  version: v1alpha1
+  kind: ResearchAgent
+  chart: helm-charts/research-agent

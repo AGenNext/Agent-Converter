@@ -1,0 +1,19 @@
+apiVersion: research.agennext.ai/v1alpha1
+kind: ResearchAgent
+metadata:
+  name: researchagent-sample
+spec:
+  replicaCount: 2
+  model: "anthropic:claude-sonnet-4-5"
+  secretName: research-agent-secrets
+  image:
+    repository: research-deep-agent
+    tag: latest
+  service:
+    type: ClusterIP
+    port: 80
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
