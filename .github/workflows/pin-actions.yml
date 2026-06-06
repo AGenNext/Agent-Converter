@@ -1,0 +1,62 @@
+name: Pin actions to SHAs
+
+# Bootstraps SHA pinning. This workflow deliberately uses NO `uses:` actions, so
+# it complies with the org "require actions pinned to a commit SHA" ruleset and
+# can run even while the other workflows are refused at startup. It resolves
+# each action tag to a commit SHA with the gh CLI and rewrites every workflow,
+# then pushes the pinned result to the branch.
+#
+# Triggered on push to this file (the repo default branch isn't main, so
+# workflow_dispatch can't target it) and via dispatch where available.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/pin-actions.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  pin:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve SHAs and pin workflow actions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" repo
+          cd repo
+          git checkout "${GITHUB_REF_NAME}"
+
+          pin() {
+            local action="$1" ver="$2" ref typ sha
+            ref=$(gh api "repos/${action}/git/ref/tags/${ver}")
+            typ=$(jq -r '.object.type' <<<"$ref")
+            sha=$(jq -r '.object.sha' <<<"$ref")
+            if [ "$typ" = "tag" ]; then
+              sha=$(gh api "repos/${action}/git/tags/${sha}" --jq '.object.sha')
+            fi
+            echo "Pinning ${action}@${ver} -> ${sha}"
+            sed -i -E "s|(uses: ${action})@[^[:space:]]+.*|\1@${sha} # ${ver}|g" .github/workflows/*.yml
+          }
+
+          pin actions/checkout v6
+          pin actions/setup-python v6
+          pin actions/setup-node v6
+          pin actions/upload-artifact v7
+          pin actions/deploy-pages v5
+          pin actions/upload-pages-artifact v3
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows
+          if git diff --cached --quiet; then
+            echo "Nothing to pin."
+          else
+            git commit -m "Pin GitHub Actions to commit SHAs (satisfy org ruleset)"
+            git push origin "${GITHUB_REF_NAME}"
+          fi
