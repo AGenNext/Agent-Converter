@@ -13,6 +13,10 @@ secretName: research-agent-secrets
 # Model the agent runs, passed through as RESEARCH_AGENT_MODEL.
 model: "anthropic:claude-sonnet-4-5"
 
+# Target environment (e.g. dev, staging, production). Surfaced as the
+# RESEARCH_AGENT_ENV env var and an environment label.
+environment: production
+
 service:
   type: ClusterIP
   port: 80

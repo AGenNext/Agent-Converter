@@ -1,6 +1,7 @@
 # Research Deep Agent — common tasks. Run `make help` for the list.
 .DEFAULT_GOAL := help
 IMAGE ?= research-deep-agent:latest
+ENV ?= production
 
 .PHONY: help install test run cli image compose-up compose-down \
         k8s-deploy operator-deploy chaos storybook mcp tofu-plan tofu-apply sbom
@@ -46,10 +47,10 @@ mcp: ## Run the MCP server (stdio)
 	python mcp_server.py
 
 tofu-plan: ## OpenTofu plan (needs deploy/tofu/terraform.tfvars)
-	cd deploy/tofu && tofu init && tofu plan
+	cd deploy/tofu && tofu init && tofu plan -var environment=$(ENV)
 
 tofu-apply: ## OpenTofu apply to the target cluster
-	cd deploy/tofu && tofu init && tofu apply
+	cd deploy/tofu && tofu init && tofu apply -var environment=$(ENV)
 
 sbom: ## Generate a CycloneDX SBOM into sbom/
 	pip install -q cyclonedx-bom && mkdir -p sbom && cyclonedx-py environment -o sbom/python.cdx.json

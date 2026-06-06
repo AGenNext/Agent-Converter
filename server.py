@@ -144,6 +144,7 @@ def info() -> dict:
     return {
         "name": "Research Deep Agent",
         "version": "1.0.0",
+        "environment": os.environ.get("RESEARCH_AGENT_ENV", "local"),
         "model": default_model(),
         "ready": _ready,
         "tools": {

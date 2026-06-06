@@ -38,6 +38,12 @@ variable "model" {
   default     = "anthropic:claude-sonnet-4-5"
 }
 
+variable "environment" {
+  description = "Target environment (dev, staging, production)."
+  type        = string
+  default     = "production"
+}
+
 variable "service_port" {
   type    = number
   default = 80

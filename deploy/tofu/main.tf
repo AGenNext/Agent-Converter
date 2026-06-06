@@ -41,6 +41,10 @@ resource "helm_release" "research_agent" {
     value = var.model
   }
   set {
+    name  = "environment"
+    value = var.environment
+  }
+  set {
     name  = "secretName"
     value = kubernetes_secret.keys.metadata[0].name
   }

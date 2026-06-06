@@ -33,6 +33,8 @@ spec:
           env:
             - name: RESEARCH_AGENT_MODEL
               value: {{ .Values.model | quote }}
+            - name: RESEARCH_AGENT_ENV
+              value: {{ .Values.environment | quote }}
           envFrom:
             - secretRef:
                 name: {{ .Values.secretName }}
