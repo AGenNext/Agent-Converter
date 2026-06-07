@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AGenNext/Agent-Converter/schemas/research.schema.json",
+  "title": "Research Deep Agent contract",
+  "description": "Machine-readable contract for the agent's HTTP and event interfaces (v1.0.0).",
+  "$defs": {
+    "ResearchRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["question"],
+      "properties": {
+        "question": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Natural-language research question."
+        },
+        "model": {
+          "type": ["string", "null"],
+          "maxLength": 100,
+          "description": "Optional 'provider:model' override; falls back to tenant/server default."
+        }
+      }
+    },
+    "ResearchResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["answer"],
+      "properties": {
+        "answer": {
+          "type": "string",
+          "description": "Structured markdown report: Quick answer, Key findings, Analysis, Gaps, Contradictions, Sources, Next step."
+        }
+      }
+    },
+    "Error": {
+      "type": "object",
+      "required": ["detail"],
+      "properties": { "detail": { "type": "string" } }
+    },
+    "CloudEvent": {
+      "type": "object",
+      "description": "Structured-mode CloudEvent (1.0) emitted over SSE by /research/stream.",
+      "required": ["specversion", "id", "source", "type", "time", "data"],
+      "properties": {
+        "specversion": { "const": "1.0" },
+        "id": { "type": "string" },
+        "source": { "type": "string" },
+        "subject": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": [
+            "io.agennext.research.accepted",
+            "io.agennext.research.status",
+            "io.agennext.research.token",
+            "io.agennext.research.completed",
+            "io.agennext.research.error"
+          ]
+        },
+        "time": { "type": "string", "format": "date-time" },
+        "datacontenttype": { "const": "application/json" },
+        "data": { "type": "object" }
+      }
+    },
+    "Info": {
+      "type": "object",
+      "required": ["name", "version", "environment", "model", "ready", "tools"],
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "environment": { "type": "string" },
+        "model": { "type": "string" },
+        "ready": { "type": "boolean" },
+        "tools": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}
