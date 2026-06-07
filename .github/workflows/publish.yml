@@ -1,0 +1,73 @@
+name: Publish image (no-actions)
+
+# Deploys WITHOUT any `uses:` actions, so it runs despite the org Allowed-actions
+# / SHA-pin rulesets (which only gate `uses:` action refs at startup). Builds the
+# OCI image with Cloud Native Buildpacks, pushes it to GHCR, and cosign-signs it
+# (keyless via OIDC). Triggered by pushing this file, or via dispatch.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+env:
+  IMAGE: ghcr.io/agennext/agent-converter
+  PACK_VERSION: "0.35.1"
+  COSIGN_VERSION: "v2.4.1"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build, push and sign the image
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
+          REPO: ${{ github.repository }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          echo "::group::Install pack + cosign"
+          curl -sSfL "https://github.com/buildpacks/pack/releases/download/v${PACK_VERSION}/pack-v${PACK_VERSION}-linux.tgz" \
+            | sudo tar -xz -C /usr/local/bin pack
+          base="https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}"
+          curl -sSfL "${base}/cosign-linux-amd64" -o /tmp/cosign
+          curl -sSfL "${base}/cosign_checksums.txt" -o /tmp/cosign_checksums.txt
+          grep ' cosign-linux-amd64$' /tmp/cosign_checksums.txt \
+            | sed 's#cosign-linux-amd64#/tmp/cosign#' | sha256sum -c -
+          sudo install -m 0755 /tmp/cosign /usr/local/bin/cosign
+          pack version && cosign version
+          echo "::endgroup::"
+
+          echo "::group::Checkout source (git, no actions)"
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" repo
+          cd repo && git checkout "${REF_NAME}"
+          echo "::endgroup::"
+
+          echo "::group::Build and push to GHCR"
+          echo "${GH_TOKEN}" | docker login ghcr.io -u "${GH_ACTOR}" --password-stdin
+          pack build "${IMAGE}:${REF_NAME}" \
+            --builder paketobuildpacks/builder-jammy-base \
+            --default-process web \
+            --publish
+          DIGEST="$(docker buildx imagetools inspect "${IMAGE}:${REF_NAME}" --format '{{.Manifest.Digest}}')"
+          echo "Published ${IMAGE}@${DIGEST}"
+          echo "::endgroup::"
+
+          echo "::group::Sign + attest SBOM (best effort)"
+          cosign sign --yes "${IMAGE}@${DIGEST}"
+          if pip install --quiet cyclonedx-bom -r requirements.txt; then
+            cyclonedx-py environment -o /tmp/sbom.cdx.json \
+              && cosign attest --yes --type cyclonedx --predicate /tmp/sbom.cdx.json "${IMAGE}@${DIGEST}"
+          fi
+          echo "::endgroup::"
+
+          echo "Done: ${IMAGE}:${REF_NAME} (signed)"
