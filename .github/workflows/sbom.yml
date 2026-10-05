@@ -2,8 +2,8 @@ name: SBOM
 
 # Generate a CycloneDX SBOM for the Python app and run pip-audit. Uses NO
 # `uses:` actions (checkout via git fetch-by-SHA; venv) so it runs under the
-# org Allowed-actions policy. The SBOM is printed to the log; artifact upload
-# needs actions/upload-artifact (restore once the org policy allows it).
+# org Allowed-actions policy. The SBOM is summarised in the log; artifact
+# upload needs actions/upload-artifact (restore once the org policy allows it).
 
 on:
   push:
@@ -37,9 +37,5 @@ jobs:
           pip install -q cyclonedx-bom pip-audit -r requirements.txt
           mkdir -p sbom
           cyclonedx-py environment /tmp/v -o sbom/python.cdx.json
-          python - <<'PY'
-import json
-d = json.load(open("sbom/python.cdx.json"))
-print("SBOM:", len(d.get("components", [])), "components,", d.get("bomFormat"), d.get("specVersion"))
-PY
+          python -c "import json; d=json.load(open('sbom/python.cdx.json')); print('SBOM:', len(d.get('components',[])), 'components', d.get('bomFormat'), d.get('specVersion'))"
           echo "::group::pip-audit"; pip-audit || true; echo "::endgroup::"
