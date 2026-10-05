@@ -1,7 +1,10 @@
 name: CI
 
-# Runs on every push to main and every pull request: lint + tests for the
-# Python app, and a syntax check for the panel's JavaScript.
+# Lint + tests for the Python app and a JS syntax check for the panel.
+# Uses NO `uses:` actions (checkout via git fetch-by-SHA; runner's preinstalled
+# python3/node) so it runs under the org Allowed-actions policy that refuses
+# actions/*. Trade-off: the Python matrix is dropped — tests run on the runner's
+# default python3. Restore actions/setup-python once the org policy allows it.
 
 on:
   push:
@@ -19,43 +22,41 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: ${{ matrix.python }}
-          cache: pip
-
-      - name: Install
+      - name: Checkout (git fetch by SHA, no actions)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt pyflakes
-
-      - name: Lint (pyflakes)
-        run: python -m pyflakes research_agent server.py mcp_server.py main.py
-
-      - name: Test (pytest)
-        run: pytest -q
+          set -euo pipefail
+          mkdir src && cd src && git init -q
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch -q --depth 1 origin "${GITHUB_SHA}"
+          git checkout -q FETCH_HEAD
+      - name: Lint + test
+        working-directory: src
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/v
+          . /tmp/v/bin/activate
+          pip install -q --upgrade pip
+          pip install -q -r requirements.txt pyflakes pytest
+          python -m pyflakes research_agent server.py mcp_server.py main.py
+          pytest -q
 
   web:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: "20"
-
+      - name: Checkout (git fetch by SHA, no actions)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir src && cd src && git init -q
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch -q --depth 1 origin "${GITHUB_SHA}"
+          git checkout -q FETCH_HEAD
       - name: Syntax-check panel JavaScript
+        working-directory: src
         run: |
           node --check static/a2ui-client.js
           node -e "const fs=require('fs');const h=fs.readFileSync('static/index.html','utf8');const m=[...h.matchAll(/<script(?![^>]*src)[^>]*>([\s\S]*?)<\/script>/g)].map(x=>x[1]).join('\n');fs.writeFileSync('/tmp/panel.js',m);"
