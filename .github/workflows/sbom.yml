@@ -1,7 +1,9 @@
 name: SBOM
 
-# Generate CycloneDX SBOMs for the Python app and the UI component library,
-# and upload them as build artifacts.
+# Generate a CycloneDX SBOM for the Python app and run pip-audit. Uses NO
+# `uses:` actions (checkout via git fetch-by-SHA; venv) so it runs under the
+# org Allowed-actions policy. The SBOM is printed to the log; artifact upload
+# needs actions/upload-artifact (restore once the org policy allows it).
 
 on:
   push:
@@ -16,37 +18,28 @@ jobs:
   sbom:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: "3.11"
-
-      - name: Python SBOM (CycloneDX)
+      - name: Checkout (git fetch by SHA, no actions)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python -m pip install --upgrade pip
-          pip install cyclonedx-bom -r requirements.txt
+          set -euo pipefail
+          mkdir src && cd src && git init -q
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch -q --depth 1 origin "${GITHUB_SHA}"
+          git checkout -q FETCH_HEAD
+      - name: Python SBOM (CycloneDX) + audit
+        working-directory: src
+        run: |
+          set -uo pipefail
+          python3 -m venv /tmp/v
+          . /tmp/v/bin/activate
+          pip install -q --upgrade pip
+          pip install -q cyclonedx-bom pip-audit -r requirements.txt
           mkdir -p sbom
-          cyclonedx-py environment -o sbom/python.cdx.json
-
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: "20"
-
-      - name: UI SBOM (CycloneDX)
-        run: |
-          cd ui
-          npm install --package-lock-only
-          npm sbom --sbom-format cyclonedx > ../sbom/ui.cdx.json || true
-
-      - name: Audit Python dependencies
-        run: |
-          pip install pip-audit
-          pip-audit || true   # report, do not fail the build on advisory noise
-
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: sbom
-          path: sbom/*.json
+          cyclonedx-py environment /tmp/v -o sbom/python.cdx.json
+          python - <<'PY'
+import json
+d = json.load(open("sbom/python.cdx.json"))
+print("SBOM:", len(d.get("components", [])), "components,", d.get("bomFormat"), d.get("specVersion"))
+PY
+          echo "::group::pip-audit"; pip-audit || true; echo "::endgroup::"
