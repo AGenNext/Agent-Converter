@@ -18,3 +18,6 @@ deploy/k8s/secret.yaml
 # Node / Storybook
 node_modules/
 storybook-static/
+
+# Live eval outputs
+evals/out/

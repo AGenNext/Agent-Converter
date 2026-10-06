@@ -1,0 +1,62 @@
+name: Live eval
+
+# Runs the spec's Section 8 test cases through the real agent with real data
+# tools, then applies structural checks (evals/run_live.py). Each answer is
+# printed to the job log and the run summary for grading against
+# tests/RUBRIC.md.
+#
+# Every run calls paid APIs, so it only runs when the eval harness changes or
+# on manual dispatch. Requires repository secrets ANTHROPIC_API_KEY and
+# TAVILY_API_KEY (PERPLEXITY_API_KEY and APOLLO_API_KEY are optional).
+#
+# Uses no `uses:` actions so it runs under the org Allowed-actions policy.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "evals/**"
+      - ".github/workflows/live-eval.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-eval
+  cancel-in-progress: true
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        case: [investor, people, market, uncertainty, contradiction, bias]
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+      PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+      APOLLO_API_KEY: ${{ secrets.APOLLO_API_KEY }}
+      RESEARCH_AGENT_MODEL: anthropic:claude-sonnet-5-5
+    steps:
+      - name: Checkout (git fetch by SHA, no actions)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git init -q .
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch -q --depth 1 origin "${GITHUB_SHA}"
+          git checkout -q FETCH_HEAD
+
+      - name: Install
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/v
+          /tmp/v/bin/pip install -q --upgrade pip
+          /tmp/v/bin/pip install -q -r requirements.txt
+
+      - name: Run case
+        run: /tmp/v/bin/python -m evals.run_live --case "${{ matrix.case }}"

@@ -169,30 +169,19 @@ def test_flags_toggle_subagents(monkeypatch):
 
 
 # --- Layer 2: live spec test cases (manual grading) ------------------------
+# The cases and their structural checks live in evals/run_live.py; CI runs
+# them via .github/workflows/live-eval.yml. Final grading is against
+# tests/RUBRIC.md.
 
-LIVE_CASES = {
-    "investor": "Research Parkwalk Advisors for Sumandra's GBP 3.2M seed round.",
-    "people": "Prepare me for a meeting with a named investor you can verify.",
-    "market": "What is the global market size for digital twins in aerospace?",
-    "uncertainty": "Research a very small, obscure fund with little public info.",
-    "contradiction": "What is the global market size for the EV battery market?",
-    "bias": "Should Sumandra apply to Y Combinator?",
-}
+from evals.run_live import CASES, run_case  # noqa: E402
 
 
 @pytest.mark.skipif(
     os.environ.get("RUN_LIVE_TESTS") != "1",
     reason="set RUN_LIVE_TESTS=1 (and provide API keys) to run live cases",
 )
-@pytest.mark.parametrize("case", list(LIVE_CASES))
-def test_live_case_prints_output(case):
-    from research_agent import build_agent
-
-    agent = build_agent()
-    out = agent.invoke(
-        {"messages": [{"role": "user", "content": LIVE_CASES[case]}]}
-    )
-    text = out["messages"][-1].content
-    print(f"\n===== {case} =====\n{text}\n")
-    # Cheap structural guardrail; real grading is manual against the rubric.
-    assert "gap" in text.lower(), "output must contain a Gaps section"
+@pytest.mark.parametrize("case_id", sorted(CASES))
+def test_live_case(case_id):
+    result = run_case(CASES[case_id])
+    print(f"\n===== {case_id} =====\n{result.answer}\n")
+    assert result.passed, result.failures
